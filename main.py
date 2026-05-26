@@ -27,8 +27,13 @@ def chunk_text(text, chunk_size=1000):
     return chunks
 
 text = remove_citations(text)
-chunks = chunk_text(text, 1000)
+chunks = chunk_text(text, 500)
+
+# print(len(chunks))
 
 summary = generate_summary(chunks)
-print(summary)
-# print(text[:50])
+final_summary = "\n".join(summary)
+
+#save the generated summary in a txt file
+with open("final_summary.txt", "w", encoding="utf-8") as file:
+    file.write(final_summary)
