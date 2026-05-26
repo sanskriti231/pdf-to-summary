@@ -1,0 +1,7 @@
+Spring data's dto projection cannot auto-deserialize a blob into a jpa entity . we flatten all
+columns instead . select count(*) as total_count, count (*) filter (where la.status_code in) offset
+:offset  ## corresponding dto java public class applicationwithcountsdto . private long totalcount;
+private long opencount; private long inprogresscount; // flattened loan application fields private
+long laid; private bigdecimal laamount; private string laloantype . a single-query approach with
+flattened dto avoids the bloat entirely . it's verbose but works reliably with spring data native
+queries .

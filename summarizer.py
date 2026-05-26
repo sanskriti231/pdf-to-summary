@@ -14,6 +14,5 @@ def generate_summary(chunks):
             min_length=40,
             do_sample=False
         )
-        
         summaries.append(s[0]['summary_text'])
     return summaries

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Summary</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .container { background: white; border-radius: 12px; padding: 40px; max-width: 600px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; }
+        .upload-area { border: 2px dashed #667eea; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: background 0.3s; }
+        .upload-area:hover { background: #f8f9ff; }
+        .upload-area.dragover { background: #e8ecff; }
+        .upload-icon { font-size: 48px; color: #667eea; margin-bottom: 15px; }
+        #file-input { display: none; }
+        .btn { background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 15px; }
+        .btn:hover { background: #5a6fd6; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .file-info { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 6px; display: none; }
+        .progress-container { margin-top: 20px; display: none; }
+        .progress-bar { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #667eea; width: 0%; transition: width 0.3s; }
+        .summary-container { margin-top: 30px; display: none; }
+        .summary-text { background: #f8f9ff; padding: 20px; border-radius: 8px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+        .stats { display: flex; gap: 20px; margin-top: 15px; font-size: 14px; color: #666; }
+        .stat { background: #f0f0f0; padding: 10px 15px; border-radius: 6px; }
+        .download-btn { margin-top: 15px; width: 100%; }
+        .error { color: #d32f2f; background: #ffebee; padding: 15px; border-radius: 6px; margin-top: 15px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF to Summary</h1>
+        <p class="subtitle">Upload a PDF and get an AI-generated summary</p>
+
+        <div class="upload-area" id="upload-area">
+            <div class="upload-icon">📄</div>
+            <p>Drag & drop your PDF here</p>
+            <p>or</p>
+            <label for="file-input" class="btn">Choose File</label>
+            <input type="file" id="file-input" accept=".pdf">
+        </div>
+
+        <div class="file-info" id="file-info">
+            <strong id="file-name"></strong>
+            <p id="file-meta"></p>
+        </div>
+
+        <div class="progress-container" id="progress-container">
+            <p>Processing PDF...</p>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        </div>
+
+        <div class="error" id="error-box"></div>
+
+        <div class="summary-container" id="summary-container">
+            <h3>Summary</h3>
+            <div class="summary-text" id="summary-text"></div>
+            <div class="stats">
+                <span class="stat">Original: <span id="original-count">0</span> words</span>
+                <span class="stat">Summary: <span id="summary-count">0</span> words</span>
+                <span class="stat">Pages: <span id="page-count">0</span></span>
+            </div>
+            <button class="btn download-btn" id="download-btn">Download Summary</button>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const fileMeta = document.getElementById('file-meta');
+        const progressContainer = document.getElementById('progress-container');
+        const errorBox = document.getElementById('error-box');
+        const summaryContainer = document.getElementById('summary-container');
+        const summaryText = document.getElementById('summary-text');
+        const downloadBtn = document.getElementById('download-btn');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', e => { e.preventDefault(); uploadArea.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+        fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+        function handleFile(file) {
+            if (!file || file.type !== 'application/pdf') {
+                showError('Please upload a valid PDF file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        fileName.textContent = data.filename;
+                        fileMeta.textContent = `${(data.file_size / 1024 / 1024).toFixed(2)} MB • ${data.page_count} pages`;
+                        fileInfo.style.display = 'block';
+                        processPDF(data.filename);
+                    } else {
+                        showError(data.error);
+                    }
+                })
+                .catch(err => showError('Upload failed: ' + err.message));
+        }
+
+        function processPDF(filename) {
+            progressContainer.style.display = 'block';
+            fetch('/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    progressContainer.style.display = 'none';
+                    if (data.success) {
+                        summaryText.textContent = data.summary;
+                        document.getElementById('original-count').textContent = data.original_word_count;
+                        document.getElementById('summary-count').textContent = data.summary_word_count;
+                        document.getElementById('page-count').textContent = data.page_count;
+                        summaryContainer.style.display = 'block';
+                        downloadBtn.onclick = () => window.location.href = `/download/${data.summary_filename}`;
+                    } else {
+                        showError(data.error);
+                    }
+                })
+                .catch(err => { progressContainer.style.display = 'none'; showError(err.message); });
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
