@@ -2,6 +2,7 @@ import fitz
 import sys
 import re
 from summarizer import generate_summary
+import textwrap
 
 doc = fitz.open(f"{sys.argv[1]}")
 
@@ -27,13 +28,15 @@ def chunk_text(text, chunk_size=1000):
     return chunks
 
 text = remove_citations(text)
-chunks = chunk_text(text, 500)
+chunks = chunk_text(text, 240) #small chunks because we used t5-small model
 
 # print(len(chunks))
 
 summary = generate_summary(chunks)
 final_summary = "\n".join(summary)
+formatted = textwrap.fill(final_summary, width=100)
+formatted = formatted.capitalize()
 
 #save the generated summary in a txt file
 with open("final_summary.txt", "w", encoding="utf-8") as file:
-    file.write(final_summary)
+    file.write(formatted)

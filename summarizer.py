@@ -9,7 +9,7 @@ def generate_summary(chunks):
     summaries = []
     for chunk in chunks:
         s = summarizer(
-            chunk,
+            "summarize: " + chunk,
             max_length=120,
             min_length=40,
             do_sample=False
