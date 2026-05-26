@@ -1,0 +1,28 @@
+Object oriented programming using c++ lab course code : csp3311 course objectives: 1. develop
+solutions for a range of problems using objects and classes . 2. implement the concepts of
+constructors, destructores and operator overloading . 3. apply fundamental algorithmic problems
+including type casting, inheritance . questions for lab tests and the exam need not necessarily be
+limited to the questions in the manual, but could involve some variations and / or combinations of
+the questions . index s.no. experiment page no. 1. design and implement programs using pointers .
+wap to set the values of a student record using pass by value . #include iostream> using namespace
+std; typedef struct student int rollno; int age; ; void setvalue(student *s) cout . cout  " enter
+length, breadth, height"  s->rollno = rollno . 's->age  endl;  int main() student s; setvalue(&s);
+return 0 . cout  void setname(char * p) for(int i = 0; p[i] != '0'; i++) name[i],  int getid()
+return id . program : wap using constructors to initialize a bank account . accountholdername =
+name; cout  void setaccountnumber(); cin >> accountbalance; 'enter account num' 'int l,b,h' string
+boxname; public: box x; b = y; h = z;  int calvol()  return l*b*h . nenter a box name; cin >>
+boxname;  ; int main(); ob1.displaybox() . create a base class person with derived classes student
+and professor . include attributes and methods relevant to each class . a teamlead class should
+inherit from a base class person (containing name and age) a class should be able to inherit from
+both manager and engineer . the teamlead is a virtual inheritance for a company with two employee
+types . class person  protected: string name; int age; public: person(string name, int aged)
+this->name = name; this->age = age;  void display() . cout  "teamlead "  lead " for manager . 'you
+could not meet our requirements for schlorshipn', ' cout  r.topper' ''you're not eligible for
+s.name,'' says engineer . 'iostream' uses namespace std .  s2.name  " have same marksn"; topper =
+s.name; student temp; return temp . program : initialize the number of workers using the new and
+delete operator taking input from the user . also display the total time taken by those workers .
+program : design and implement programs using the concept of overloading . #includeiostream> using
+namespace std; class distance  public: int feet, inch; distance()  feet=0; inch=0 . ifstream
+i("students.dat", ios::binary) cout  "contents of the file:"  endl; while (getline(i, line)); o
+line; o.close() .  int main()  studentmanager manager; int choice . cout  "invalid option. try
+again.n"; 0; 21; 21 . "invalid option": if you're not a break, try again.
