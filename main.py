@@ -1,11 +1,34 @@
 import fitz
 import sys
+import re
+from summarizer import generate_summary
 
 doc = fitz.open(f"{sys.argv[1]}")
-i = 0
+
+text = ""
 for page in doc:
-    print(i, end =":")
-    text = page.get_text()
-    print(text)
-    i += 1
-print(len(doc))
+    text += page.get_text()
+
+#cleaning the text
+text = " ".join(text.split())
+def remove_citations(text):
+    text = re.sub(r"\[\d+\]", "", text)
+    text = re.sub(r"\(\w+ et al\., \d{4}\)", "", text)
+    return text
+
+
+#chunking
+def chunk_text(text, chunk_size=1000):
+    words = text.split()
+    chunks = []
+    for i in range(0, len(words), chunk_size):
+        chunks.append(" ".join(words[i:i+chunk_size]))
+
+    return chunks
+
+text = remove_citations(text)
+chunks = chunk_text(text, 1000)
+
+summary = generate_summary(chunks)
+print(summary)
+# print(text[:50])
