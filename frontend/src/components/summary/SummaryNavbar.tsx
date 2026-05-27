@@ -43,7 +43,7 @@ export function SummaryNavbar({ summary, copied, onCopy, activeTab, onTabChange 
 
   return (
     <div className="border-b bg-background">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
         {/* Left: Back + filename */}
         <div className="flex items-center gap-3">
           <button
@@ -56,8 +56,8 @@ export function SummaryNavbar({ summary, copied, onCopy, activeTab, onTabChange 
             </svg>
           </button>
           <div className="hidden sm:block">
-            <p className="text-xs font-medium text-foreground">{summary.original_filename}</p>
-            <p className="text-[10px] text-muted-foreground/40">{summary.page_count} pages · {summary.original_word_count.toLocaleString()} words</p>
+            <p className="text-sm font-medium text-foreground">{summary.original_filename}</p>
+            <p className="text-xs text-muted-foreground/50">{summary.page_count} pages · {summary.original_word_count.toLocaleString()} words</p>
           </div>
         </div>
 
@@ -67,7 +67,7 @@ export function SummaryNavbar({ summary, copied, onCopy, activeTab, onTabChange 
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
                 activeTab === tab.id
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground/60 hover:text-foreground"

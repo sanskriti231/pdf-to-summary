@@ -93,24 +93,24 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
   if (!started) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
-        <div className="max-w-sm text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-muted/30">
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
-              <path d="M4 4h14a1 1 0 011 1v10a1 1 0 01-1 1H8l-4 3V5a1 1 0 011-1z"/>
-              <path d="M8 9h6M8 12h4"/>
-            </svg>
-          </div>
-          <h3 className="mt-4 text-sm font-medium text-foreground">Study Flashcards</h3>
-          <p className="mt-1.5 text-xs text-muted-foreground/50 leading-relaxed">
-            Review key concepts from this document with interactive flashcards. Flip to reveal the answer.
-          </p>
+      <div className="max-w-sm text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
+            <path d="M5 5h14a1 1 0 011 1v11a1 1 0 01-1 1H9l-5 3V6a1 1 0 011-1z"/>
+            <path d="M9 10h6M9 13h4"/>
+          </svg>
+        </div>
+        <h3 className="mt-4 text-base font-semibold text-foreground">Study Flashcards</h3>
+        <p className="mt-1.5 text-sm text-muted-foreground/60 leading-relaxed">
+          Review key concepts from this document with interactive flashcards. Flip to reveal the answer.
+        </p>
           <div className="mt-5 flex items-center justify-center gap-2">
-            <label className="text-xs text-muted-foreground/60">Cards:</label>
+            <label className="text-sm text-muted-foreground/60">Cards:</label>
             {[5, 8, 12].map((n) => (
               <button
                 key={n}
                 onClick={() => setNumCards(n)}
-                className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                className={`rounded px-3 py-1 text-sm transition-colors ${
                   numCards === n
                     ? "bg-foreground text-background"
                     : "bg-muted/30 text-muted-foreground hover:text-foreground"
@@ -123,7 +123,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
           <button
             onClick={startFlashcards}
             disabled={loading}
-            className="mt-5 inline-flex items-center gap-1.5 rounded bg-foreground px-4 py-2 text-xs font-medium text-background transition-all hover:opacity-90 disabled:opacity-50"
+            className="mt-5 inline-flex items-center gap-1.5 rounded bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-all hover:opacity-90 disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -161,16 +161,16 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
   const isKnown = knownCards.has(currentIndex);
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto">
+    <div className="flex flex-1 flex-col overflow-y-auto min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-5 py-3">
-        <span className="text-xs text-muted-foreground/60">
+        <span className="text-sm text-muted-foreground/60">
           Card {currentIndex + 1} of {cards.length}
         </span>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowKnown((prev) => !prev)}
-            className={`text-xs transition-colors ${
+            className={`text-sm transition-colors ${
               showKnown ? "text-muted-foreground/60" : "text-emerald-500"
             }`}
           >
@@ -178,7 +178,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
           </button>
           <button
             onClick={reset}
-            className="text-xs text-muted-foreground/40 transition-colors hover:text-foreground"
+            className="text-sm text-muted-foreground/40 transition-colors hover:text-foreground"
           >
             End study
           </button>
@@ -219,7 +219,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
                     <span className="mb-3 inline-block rounded bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
                       Answer
                     </span>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
+                    <p className="text-base leading-relaxed text-muted-foreground">
                       {current.back}
                     </p>
                   </div>
@@ -228,7 +228,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
                     <span className="mb-3 inline-block rounded bg-muted/30 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
                       Question
                     </span>
-                    <p className="text-sm font-medium leading-relaxed text-foreground">
+                    <p className="text-base font-medium leading-relaxed text-foreground">
                       {current.front}
                     </p>
                   </div>
@@ -261,10 +261,10 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
             <button
               onClick={goPrev}
               disabled={currentIndex === 0}
-              className="flex items-center gap-1 text-xs text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-20"
+              className="flex items-center gap-1 text-sm text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-20"
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-                <path d="M7 3L4 6l3 3"/>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                <path d="M8 3.5L4.5 7 8 10.5"/>
               </svg>
               Previous
             </button>
@@ -272,19 +272,19 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={markKnown}
-                className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-600 transition-all hover:bg-emerald-500/20 dark:text-emerald-400"
+                className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-3.5 py-2 text-sm text-emerald-600 transition-all hover:bg-emerald-500/20 dark:text-emerald-400"
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M2.5 6l3 3 4-4"/>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M3 7l3 3 5-5"/>
                 </svg>
                 Know it
               </button>
               <button
                 onClick={markUnknown}
-                className="inline-flex items-center gap-1 rounded bg-red-500/10 px-3 py-1.5 text-xs text-red-600 transition-all hover:bg-red-500/20 dark:text-red-400"
+                className="inline-flex items-center gap-1 rounded bg-red-500/10 px-3.5 py-2 text-sm text-red-600 transition-all hover:bg-red-500/20 dark:text-red-400"
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M4 4l4 4M8 4l-4 4"/>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M5 5l4 4M9 5l-4 4"/>
                 </svg>
                 Still learning
               </button>
@@ -293,20 +293,20 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
             {currentIndex < cards.length - 1 ? (
               <button
                 onClick={goNext}
-                className="flex items-center gap-1 text-xs text-muted-foreground/50 transition-colors hover:text-foreground"
+                className="flex items-center gap-1 text-sm text-muted-foreground/50 transition-colors hover:text-foreground"
               >
                 Next
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-                  <path d="M5 3l3 3-3 3"/>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                  <path d="M6 3.5l3.5 3.5L6 10.5"/>
                 </svg>
               </button>
             ) : (
               <button
                 onClick={reset}
-                className="inline-flex items-center gap-1 rounded bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-all hover:opacity-90"
+                className="inline-flex items-center gap-1 rounded bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-all hover:opacity-90"
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-                  <polygon points="3,2 10,6 3,10" fill="currentColor"/>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                  <polygon points="4,2.5 11,7 4,11.5" fill="currentColor"/>
                 </svg>
                 New Set
               </button>

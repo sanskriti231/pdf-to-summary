@@ -25,7 +25,7 @@ export function ChatInput({
 }: ChatInputProps) {
   return (
     <div className="border-t bg-background px-4 py-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         {/* Voice button */}
         {voiceSupported && onVoiceClick && (
           <button
@@ -63,8 +63,8 @@ export function ChatInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={isListening ? "listening..." : "ask a question..."}
-          className="flex-1 bg-transparent py-1.5 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
+          placeholder={isListening ? "listening..." : "Ask a question about this document..."}
+          className="flex-1 bg-transparent py-2 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
           disabled={sending || isListening}
         />
 
@@ -72,14 +72,14 @@ export function ChatInput({
         <button
           onClick={onSend}
           disabled={!value.trim() || sending}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 disabled:opacity-20 disabled:hover:bg-transparent"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 disabled:opacity-20 disabled:hover:bg-transparent"
           aria-label="send"
         >
           {sending ? (
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+            <div className="h-4 w-4 animate-spin rounded-full border border-current border-t-transparent" />
           ) : (
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 7l3-3 3 3M5 4v7"/>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 8l4-4 4 4M6 4v8"/>
             </svg>
           )}
         </button>

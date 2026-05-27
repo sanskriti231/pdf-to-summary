@@ -177,7 +177,7 @@ export default function SummaryDetailPage() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    <div className="flex h-[100dvh] flex-col bg-background">
       <SummaryNavbar
         summary={summary}
         copied={copied}
@@ -186,7 +186,7 @@ export default function SummaryDetailPage() {
         onTabChange={setActiveTab}
       />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1">
+      <div className="mx-auto flex w-full max-w-6xl min-h-0 flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           {renderTabContent()}
         </AnimatePresence>

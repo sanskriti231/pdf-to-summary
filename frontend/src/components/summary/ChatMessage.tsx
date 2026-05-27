@@ -20,31 +20,31 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.03 }}
-      className={`mb-4 flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`}
+      className={`mb-4 flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}
     >
       {/* Avatar */}
       <div
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
           isUser
             ? "bg-primary text-primary-foreground"
             : "bg-muted text-muted-foreground"
         }`}
       >
         {isUser ? (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 6.5A2.5 2.5 0 106 1.5a2.5 2.5 0 000 5zM1.5 11c.5-1.5 2-2.5 4.5-2.5s4 1 4.5 2.5"/>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 7.5A3 3 0 107 1.5a3 3 0 000 6zM1.5 12.5c.7-2 2.5-3.5 5.5-3.5s4.8 1.5 5.5 3.5"/>
           </svg>
         ) : (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="1" y="1" width="10" height="10" rx="2"/>
-            <path d="M4 5h4M4 7h3"/>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1" y="1" width="12" height="12" rx="2"/>
+            <path d="M5 6h4M5 8.5h3"/>
           </svg>
         )}
       </div>
 
       {/* Bubble */}
       <div
-        className={`max-w-[80%] rounded-lg px-3 py-2 ${
+        className={`max-w-[80%] rounded-lg px-3.5 py-2.5 ${
           isUser
             ? "bg-primary text-primary-foreground"
             : "border bg-background text-foreground"

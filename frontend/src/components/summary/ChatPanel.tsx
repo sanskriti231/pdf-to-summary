@@ -40,11 +40,11 @@ export function ChatPanel({
   const hasMessages = messages.length > 1;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col min-h-0">
       {/* Mobile header */}
-      <div className="border-b px-4 py-2 lg:hidden">
-        <p className="text-xs font-medium text-foreground">{summary.original_filename}</p>
-        <p className="text-[10px] text-muted-foreground">
+      <div className="border-b px-4 py-2.5 lg:hidden">
+        <p className="text-sm font-medium text-foreground">{summary.original_filename}</p>
+        <p className="text-xs text-muted-foreground">
           {summary.page_count} pages
         </p>
       </div>
@@ -53,13 +53,13 @@ export function ChatPanel({
       {!hasMessages && !sending && (
         <div className="flex flex-1 items-center justify-center px-4">
           <div className="text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded bg-muted/30">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-muted-foreground/40">
-                <rect x="2" y="2" width="14" height="14" rx="2"/>
-                <path d="M6 9h6M6 11h4" strokeLinecap="round"/>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-muted/30">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-muted-foreground/40">
+                <rect x="2" y="2" width="16" height="16" rx="2"/>
+                <path d="M7 10h6M7 12.5h4" strokeLinecap="round"/>
               </svg>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground/50">
+            <p className="mt-3 text-sm text-muted-foreground/50">
               Ask anything about this document
             </p>
           </div>
@@ -67,7 +67,7 @@ export function ChatPanel({
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="px-4 py-4">
           <AnimatePresence>
             {messages.map((msg, i) => (
@@ -79,10 +79,10 @@ export function ChatPanel({
                 animate={{ opacity: 1, y: 0 }}
                 className="mb-4 flex gap-2.5"
               >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
-                    <rect x="1" y="1" width="10" height="10" rx="2"/>
-                    <path d="M4 5h4M4 7h3" strokeLinecap="round"/>
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
+                    <rect x="1" y="1" width="12" height="12" rx="2"/>
+                    <path d="M5 6h4M5 8h3" strokeLinecap="round"/>
                   </svg>
                 </div>
                 <div className="flex items-center gap-2 rounded bg-muted/50 px-3 py-2">

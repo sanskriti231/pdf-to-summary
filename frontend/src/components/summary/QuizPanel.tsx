@@ -102,24 +102,24 @@ export function QuizPanel({ summary }: QuizPanelProps) {
   if (!started) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
-        <div className="max-w-sm text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-muted/30">
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
-              <circle cx="11" cy="11" r="9"/>
-              <path d="M11 7v5M11 14.5v.5"/>
-            </svg>
-          </div>
-          <h3 className="mt-4 text-sm font-medium text-foreground">Quiz Mode</h3>
-          <p className="mt-1.5 text-xs text-muted-foreground/50 leading-relaxed">
-            Test your understanding of this document with AI-generated multiple-choice questions.
-          </p>
+      <div className="max-w-sm text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 8v5M12 15.5v.5"/>
+          </svg>
+        </div>
+        <h3 className="mt-4 text-base font-semibold text-foreground">Quiz Mode</h3>
+        <p className="mt-1.5 text-sm text-muted-foreground/60 leading-relaxed">
+          Test your understanding of this document with AI-generated multiple-choice questions.
+        </p>
           <div className="mt-5 flex items-center justify-center gap-2">
-            <label className="text-xs text-muted-foreground/60">Questions:</label>
+            <label className="text-sm text-muted-foreground/60">Questions:</label>
             {[3, 5, 8].map((n) => (
               <button
                 key={n}
                 onClick={() => setNumQuestions(n)}
-                className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                className={`rounded px-3 py-1 text-sm transition-colors ${
                   numQuestions === n
                     ? "bg-foreground text-background"
                     : "bg-muted/30 text-muted-foreground hover:text-foreground"
@@ -132,7 +132,7 @@ export function QuizPanel({ summary }: QuizPanelProps) {
           <button
             onClick={startQuiz}
             disabled={loading}
-            className="mt-5 inline-flex items-center gap-1.5 rounded bg-foreground px-4 py-2 text-xs font-medium text-background transition-all hover:opacity-90 disabled:opacity-50"
+            className="mt-5 inline-flex items-center gap-1.5 rounded bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-all hover:opacity-90 disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -172,21 +172,21 @@ export function QuizPanel({ summary }: QuizPanelProps) {
   const isCorrect = hasEvaluation && selectedAnswers[currentIndex] === current.correctAnswer;
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto">
+    <div className="flex flex-1 flex-col overflow-y-auto min-h-0">
       {/* Header with progress */}
       <div className="flex items-center justify-between border-b px-5 py-3">
-        <span className="text-xs text-muted-foreground/60">
+        <span className="text-sm text-muted-foreground/60">
           Question {currentIndex + 1} of {questions.length}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {score > 0 && (
-            <span className="text-xs text-muted-foreground/60">
+            <span className="text-sm text-muted-foreground/60">
               Score: {score}/{questions.length}
             </span>
           )}
           <button
             onClick={reset}
-            className="text-xs text-muted-foreground/40 transition-colors hover:text-foreground"
+            className="text-sm text-muted-foreground/40 transition-colors hover:text-foreground"
           >
             End quiz
           </button>
@@ -211,7 +211,7 @@ export function QuizPanel({ summary }: QuizPanelProps) {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <p className="text-sm font-medium leading-relaxed text-foreground">
+            <p className="text-base font-medium leading-relaxed text-foreground">
               {current.question}
             </p>
 
@@ -241,7 +241,7 @@ export function QuizPanel({ summary }: QuizPanelProps) {
                       if (!hasEvaluation) selectAnswer(currentIndex, optionKey);
                     }}
                     disabled={hasEvaluation}
-                    className={`w-full rounded-lg px-4 py-2.5 text-left text-xs leading-relaxed transition-all ${optionStyle}`}
+                    className={`w-full rounded-lg px-4 py-3 text-left text-sm leading-relaxed transition-all ${optionStyle}`}
                   >
                     {option}
                   </button>
@@ -254,7 +254,7 @@ export function QuizPanel({ summary }: QuizPanelProps) {
               <button
                 onClick={() => submitAnswer(currentIndex)}
                 disabled={!hasAnswer || evaluating[currentIndex]}
-                className="mt-5 inline-flex items-center gap-1.5 rounded bg-foreground px-4 py-2 text-xs font-medium text-background transition-all hover:opacity-90 disabled:opacity-30"
+                className="mt-5 inline-flex items-center gap-1.5 rounded bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-all hover:opacity-90 disabled:opacity-30"
               >
                 {evaluating[currentIndex] ? (
                   <>
@@ -284,11 +284,11 @@ export function QuizPanel({ summary }: QuizPanelProps) {
                       <path d="M4 4l6 6M10 4l-6 6" strokeLinecap="round"/>
                     </svg>
                   )}
-                  <span className={`text-xs font-medium ${isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                  <span className={`text-sm font-medium ${isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                     {isCorrect ? "Correct!" : "Not quite"}
                   </span>
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {evaluations[currentIndex]}
                 </p>
               </motion.div>
@@ -302,31 +302,31 @@ export function QuizPanel({ summary }: QuizPanelProps) {
         <button
           onClick={goToPrev}
           disabled={currentIndex === 0}
-          className="flex items-center gap-1 text-xs text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-20"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M7 3L4 6l3 3"/>
-          </svg>
-          Previous
-        </button>
+            className="flex items-center gap-1 text-sm text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-20"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+              <path d="M8 3.5L4.5 7 8 10.5"/>
+            </svg>
+            Previous
+          </button>
 
         {currentIndex < questions.length - 1 ? (
           <button
             onClick={goToNext}
-            className="flex items-center gap-1 text-xs text-muted-foreground/50 transition-colors hover:text-foreground"
+            className="flex items-center gap-1 text-sm text-muted-foreground/50 transition-colors hover:text-foreground"
           >
             Next
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-              <path d="M5 3l3 3-3 3"/>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+              <path d="M6 3.5l3.5 3.5L6 10.5"/>
             </svg>
           </button>
         ) : (
           <button
             onClick={reset}
-            className="inline-flex items-center gap-1.5 rounded bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-all hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-all hover:opacity-90"
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-              <polygon points="3,2 10,6 3,10" fill="currentColor"/>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+              <polygon points="4,2.5 11,7 4,11.5" fill="currentColor"/>
             </svg>
             New Quiz
           </button>

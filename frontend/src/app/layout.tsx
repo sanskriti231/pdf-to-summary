@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
-import { GeistSans, GeistMono } from "geist/font";
+import { GeistMono } from "geist/font";
+import { DM_Sans } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 
 import "./globals.css";
+
+const DmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "PDF to Summary",
@@ -23,7 +30,7 @@ export default function RootLayout({
     >
       <html lang="en" suppressHydrationWarning>
         <body
-          className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+          className={`${DmSans.variable} ${GeistMono.variable} antialiased`}
         >
           <ThemeProvider
             attribute="class"
