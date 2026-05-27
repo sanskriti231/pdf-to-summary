@@ -14,7 +14,7 @@ clean:
 # ─── Backend ───────────────────────────────────────────────────────────
 
 install-backend:
-	cd backend && python3 -m venv venv && \
+	cd backend && python3.12 -m venv venv && \
 	. venv/bin/activate && \
 	pip install -r requirements.txt -q && \
 	touch venv/.installed

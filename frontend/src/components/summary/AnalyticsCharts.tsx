@@ -40,12 +40,18 @@ export function AnalyticsCharts({ summary }: AnalyticsChartsProps) {
   ];
 
   // Timing data
+  const hasTiming = summary.gen_time != null || summary.total_time != null;
   const timingData = [
-    {
+    ...(summary.gen_time != null ? [{
       name: "Generation",
-      value: summary.gen_time ?? 0,
+      value: summary.gen_time,
       fill: "oklch(0.45 0.06 260)",
-    },
+    }] : []),
+    ...(summary.total_time != null ? [{
+      name: "Total",
+      value: summary.total_time,
+      fill: "oklch(0.55 0.12 330)",
+    }] : []),
   ];
 
   // Compression pie
@@ -141,38 +147,48 @@ export function AnalyticsCharts({ summary }: AnalyticsChartsProps) {
             Processing Time
           </p>
           <div className="h-44">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={timingData} barSize={48}>
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11, fill: "oklch(0.52 0.008 285)" }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 10, fill: "oklch(0.52 0.008 285)" }}
-                  label={{
-                    value: "seconds",
-                    angle: -90,
-                    position: "insideLeft",
-                    style: { fontSize: 10, fill: "oklch(0.52 0.008 285)" },
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "oklch(0.15 0.008 285)",
-                    border: "1px solid oklch(1 0 0 / 6%)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: "oklch(0.92 0.004 285)",
-                  }}
-                  formatter={(value: any) => `${Number(value).toFixed(2)}s`}
-                />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="oklch(0.55 0.12 330)" />
-              </BarChart>
-            </ResponsiveContainer>
+            {hasTiming ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={timingData} barSize={48}>
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: "oklch(0.52 0.008 285)" }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: "oklch(0.52 0.008 285)" }}
+                    label={{
+                      value: "seconds",
+                      angle: -90,
+                      position: "insideLeft",
+                      style: { fontSize: 10, fill: "oklch(0.52 0.008 285)" },
+                    }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "oklch(0.15 0.008 285)",
+                      border: "1px solid oklch(1 0 0 / 6%)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: "oklch(0.92 0.004 285)",
+                    }}
+                    formatter={(value: any) => `${Number(value).toFixed(2)}s`}
+                  />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    {timingData.map((entry, i) => (
+                      <Cell key={`cell-${i}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-xs text-muted-foreground/40">No timing data available</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -213,27 +229,27 @@ export function AnalyticsCharts({ summary }: AnalyticsChartsProps) {
 
       {/* Model info row */}
       <div className="flex flex-wrap gap-3 rounded-lg border bg-muted/20 px-4 py-3">
-        <div className="text-xs">
+        <div className="text-sm">
           <span className="text-muted-foreground/50">Model: </span>
           <span className="font-medium text-foreground">T5-small (local)</span>
         </div>
-        <div className="text-xs">
-          <span className="text-muted-foreground/50">Chunk size: </span>
-          <span className="font-medium text-foreground">240 words</span>
+        <div className="text-sm">
+          <span className="text-muted-foreground/50">Chunks processed: </span>
+          <span className="font-medium text-foreground">{summary.chunks_processed}</span>
         </div>
-        <div className="text-xs">
+        <div className="text-sm">
           <span className="text-muted-foreground/50">Total time: </span>
           <span className="font-medium text-foreground">
-            {summary.total_time ? `${summary.total_time.toFixed(2)}s` : "N/A"}
+            {summary.total_time != null ? `${summary.total_time.toFixed(2)}s` : "N/A"}
           </span>
         </div>
-        <div className="text-xs">
+        <div className="text-sm">
           <span className="text-muted-foreground/50">Gen time: </span>
           <span className="font-medium text-foreground">
-            {summary.gen_time ? `${summary.gen_time.toFixed(2)}s` : "N/A"}
+            {summary.gen_time != null ? `${summary.gen_time.toFixed(2)}s` : "N/A"}
           </span>
         </div>
-        <div className="text-xs">
+        <div className="text-sm">
           <span className="text-muted-foreground/50">File size: </span>
           <span className="font-medium text-foreground">
             {(summary.file_size / 1024).toFixed(0)} KB

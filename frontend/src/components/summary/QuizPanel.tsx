@@ -225,13 +225,13 @@ export function QuizPanel({ summary }: QuizPanelProps) {
                   "border bg-background text-foreground";
                 if (hasEvaluation && isCorrectOpt) {
                   optionStyle =
-                    "border-2 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+                    "border-2 border-foreground/40 bg-foreground/5 text-foreground";
                 } else if (hasEvaluation && isSelected && !isCorrectOpt) {
                   optionStyle =
-                    "border-2 border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400";
+                    "border-2 border-foreground/20 bg-muted/40 text-foreground/50";
                 } else if (isSelected) {
                   optionStyle =
-                    "border-2 border-primary bg-primary/5 text-foreground";
+                    "border-2 border-foreground bg-foreground/5 text-foreground";
                 }
 
                 return (
@@ -276,15 +276,15 @@ export function QuizPanel({ summary }: QuizPanelProps) {
               >
                 <div className="flex items-center gap-2">
                   {isCorrect ? (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-500">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-foreground">
                       <path d="M3 7l3 3 5-5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   ) : (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-red-400">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-foreground/40">
                       <path d="M4 4l6 6M10 4l-6 6" strokeLinecap="round"/>
                     </svg>
                   )}
-                  <span className={`text-sm font-medium ${isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                  <span className={`text-sm font-medium ${isCorrect ? "text-foreground" : "text-foreground/50"}`}>
                     {isCorrect ? "Correct!" : "Not quite"}
                   </span>
                 </div>

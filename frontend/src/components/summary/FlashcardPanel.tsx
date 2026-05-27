@@ -86,24 +86,21 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
   }, []);
 
   const progress = cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0;
-  const displayCards = showKnown
-    ? cards
-    : cards.filter((_, i) => !knownCards.has(i));
 
   if (!started) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
-      <div className="max-w-sm text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
-            <path d="M5 5h14a1 1 0 011 1v11a1 1 0 01-1 1H9l-5 3V6a1 1 0 011-1z"/>
-            <path d="M9 10h6M9 13h4"/>
-          </svg>
-        </div>
-        <h3 className="mt-4 text-base font-semibold text-foreground">Study Flashcards</h3>
-        <p className="mt-1.5 text-sm text-muted-foreground/60 leading-relaxed">
-          Review key concepts from this document with interactive flashcards. Flip to reveal the answer.
-        </p>
+        <div className="max-w-sm text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
+              <path d="M5 5h14a1 1 0 011 1v11a1 1 0 01-1 1H9l-5 3V6a1 1 0 011-1z"/>
+              <path d="M9 10h6M9 13h4"/>
+            </svg>
+          </div>
+          <h3 className="mt-4 text-base font-semibold text-foreground">Study Flashcards</h3>
+          <p className="mt-1.5 text-sm text-muted-foreground/60 leading-relaxed">
+            Review key concepts from this document with interactive flashcards. Flip to reveal the answer.
+          </p>
           <div className="mt-5 flex items-center justify-center gap-2">
             <label className="text-sm text-muted-foreground/60">Cards:</label>
             {[5, 8, 12].map((n) => (
@@ -161,7 +158,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
   const isKnown = knownCards.has(currentIndex);
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto min-h-0">
+    <div className="flex flex-1 flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-5 py-3">
         <span className="text-sm text-muted-foreground/60">
@@ -171,7 +168,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
           <button
             onClick={() => setShowKnown((prev) => !prev)}
             className={`text-sm transition-colors ${
-              showKnown ? "text-muted-foreground/60" : "text-emerald-500"
+              showKnown ? "text-muted-foreground/60" : "text-foreground"
             }`}
           >
             {showKnown ? "All cards" : `Unknown (${cards.length - knownCards.size})`}
@@ -193,59 +190,78 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
         />
       </div>
 
-      {/* Flashcard */}
+      {/* Flashcard with proper 3D flip */}
       <div className="flex flex-1 items-center justify-center p-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentIndex}
-            initial={{ opacity: 0, rotateY: flipped ? 180 : 0 }}
-            animate={{ opacity: 1, rotateY: flipped ? 180 : 0 }}
-            transition={{ duration: 0.3 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
             className="w-full max-w-lg"
+            style={{ perspective: "1000px" }}
           >
-            <button
+            <div
               onClick={flipCard}
-              className="w-full cursor-pointer"
+              className="relative w-full cursor-pointer"
+              style={{ transformStyle: "preserve-3d", minHeight: "220px" }}
             >
-              <div
-                className={`rounded-xl border p-8 text-center transition-all ${
-                  flipped
-                    ? "border-primary/20 bg-primary/5"
-                    : "bg-background hover:border-muted-foreground/20"
-                }`}
+              {/* Front face */}
+              <motion.div
+                animate={{ rotateY: flipped ? 180 : 0 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className="absolute inset-0 rounded-xl border bg-background p-8 text-center"
+                style={{ backfaceVisibility: "hidden" }}
               >
-                {flipped ? (
-                  <div>
-                    <span className="mb-3 inline-block rounded bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
-                      Answer
-                    </span>
-                    <p className="text-base leading-relaxed text-muted-foreground">
-                      {current.back}
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <span className="mb-3 inline-block rounded bg-muted/30 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                      Question
-                    </span>
-                    <p className="text-base font-medium leading-relaxed text-foreground">
-                      {current.front}
-                    </p>
-                  </div>
-                )}
-
+                <span className="mb-3 inline-block rounded bg-muted/30 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
+                  Question
+                </span>
+                <p className="text-base font-medium leading-relaxed text-foreground">
+                  {current.front}
+                </p>
                 <div className="mt-6 flex justify-center">
                   <div className="flex items-center gap-1.5 rounded-full bg-muted/30 px-3 py-1">
                     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-muted-foreground/30">
                       <path d="M5 1v8M9 5H1" strokeLinecap="round"/>
                     </svg>
-                    <span className="text-[10px] text-muted-foreground/40">
-                      tap to flip
+                    <span className="text-xs text-muted-foreground/40">
+                      tap to reveal
                     </span>
                   </div>
                 </div>
+              </motion.div>
+
+              {/* Back face */}
+              <motion.div
+                animate={{ rotateY: flipped ? 0 : 180 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className="absolute inset-0 rounded-xl border bg-background p-8 text-center"
+                style={{ backfaceVisibility: "hidden" }}
+              >
+                <span className="mb-3 inline-block rounded bg-muted/30 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
+                  Answer
+                </span>
+                <p className="text-base leading-relaxed text-foreground">
+                  {current.back}
+                </p>
+                <div className="mt-6 flex justify-center">
+                  <div className="flex items-center gap-1.5 rounded-full bg-muted/30 px-3 py-1">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-muted-foreground/30">
+                      <path d="M5 1v8M9 5H1" strokeLinecap="round"/>
+                    </svg>
+                    <span className="text-xs text-muted-foreground/40">
+                      tap to hide
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Spacer to maintain height */}
+              <div className="invisible p-8">
+                <p className="text-base">&nbsp;</p>
               </div>
-            </button>
+            </div>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -272,7 +288,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={markKnown}
-                className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-3.5 py-2 text-sm text-emerald-600 transition-all hover:bg-emerald-500/20 dark:text-emerald-400"
+                className="inline-flex items-center gap-1.5 rounded bg-foreground px-4 py-2 text-sm font-medium text-background transition-all hover:opacity-80"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <path d="M3 7l3 3 5-5"/>
@@ -281,7 +297,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
               </button>
               <button
                 onClick={markUnknown}
-                className="inline-flex items-center gap-1 rounded bg-red-500/10 px-3.5 py-2 text-sm text-red-600 transition-all hover:bg-red-500/20 dark:text-red-400"
+                className="inline-flex items-center gap-1.5 rounded border bg-background px-4 py-2 text-sm font-medium text-foreground transition-all hover:bg-muted/30"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <path d="M5 5l4 4M9 5l-4 4"/>
@@ -303,7 +319,7 @@ export function FlashcardPanel({ summary }: FlashcardPanelProps) {
             ) : (
               <button
                 onClick={reset}
-                className="inline-flex items-center gap-1 rounded bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-all hover:opacity-90"
+                className="inline-flex items-center gap-1.5 rounded bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-all hover:opacity-90"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
                   <polygon points="4,2.5 11,7 4,11.5" fill="currentColor"/>
