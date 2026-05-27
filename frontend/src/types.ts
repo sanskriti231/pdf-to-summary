@@ -11,6 +11,9 @@ export interface ProcessResult {
   chunks_processed: number;
   page_count: number;
   id: string;
+  gen_time?: number;
+  total_time?: number;
+  compression_ratio?: number;
 }
 
 export interface SummaryHistoryItem {
@@ -33,6 +36,9 @@ export interface SummaryDetail {
   file_size: number;
   created_at: string;
   updated_at: string;
+  gen_time?: number;
+  total_time?: number;
+  compression_ratio?: number;
 }
 
 export interface ChatMessage {

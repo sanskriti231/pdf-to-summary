@@ -20,6 +20,9 @@ class ProcessResponse(BaseModel):
     chunks_processed: int
     page_count: int
     id: str
+    gen_time: float = 0.0
+    total_time: float = 0.0
+    compression_ratio: float = 0.0
 
 
 class SummaryHistoryItem(BaseModel):
@@ -46,6 +49,9 @@ class SummaryDetailResponse(BaseModel):
     file_size: int
     created_at: str
     updated_at: str
+    gen_time: float = 0.0
+    total_time: float = 0.0
+    compression_ratio: float = 0.0
 
 
 class ChatRequest(BaseModel):

@@ -12,6 +12,7 @@ import { DashboardErrorState } from "@/components/dashboard/DashboardErrorState"
 
 export default function DashboardPage() {
   const {
+    summaries,
     filteredSummaries,
     loading,
     error,
@@ -24,15 +25,30 @@ export default function DashboardPage() {
     handleDelete,
   } = useDashboard();
 
+  const totalWords = summaries.reduce((sum, s) => sum + s.original_word_count, 0);
+  const totalPages = summaries.reduce((sum, s) => sum + s.page_count, 0);
+  const avgCompression = summaries.length > 0
+    ? Math.round(summaries.reduce((sum, s) => {
+        return sum + (s.summary_word_count / s.original_word_count * 100);
+      }, 0) / summaries.length)
+    : 0;
+
   return (
     <div className="min-h-[100dvh] bg-background">
       <DashboardNavbar />
       <MobileSheetNav open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
 
       <main className="mx-auto max-w-5xl px-5 py-10 sm:px-8">
-        <DashboardHeader count={filteredSummaries.length} />
+        <DashboardHeader
+          count={filteredSummaries.length}
+          totalWords={totalWords}
+          totalPages={totalPages}
+          avgCompression={avgCompression}
+        />
 
-        <SearchInput value={searchQuery} onChange={setSearchQuery} />
+        {summaries.length > 0 && (
+          <SearchInput value={searchQuery} onChange={setSearchQuery} />
+        )}
 
         {loading && <DashboardSkeleton />}
 

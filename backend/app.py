@@ -302,6 +302,8 @@ def process_pdf(
         (summary_word_count / original_word_count * 100) if original_word_count > 0 else 0,
     )
 
+    compression_ratio = (summary_word_count / original_word_count * 100) if original_word_count > 0 else 0
+
     return ProcessResponse(
         summary=formatted,
         summary_word_count=summary_word_count,
@@ -309,6 +311,9 @@ def process_pdf(
         chunks_processed=len(chunks),
         page_count=len(pages_text),
         id=summary_id,
+        gen_time=round(gen_elapsed, 2),
+        total_time=round(total_elapsed, 2),
+        compression_ratio=round(compression_ratio, 1),
     )
 
 
@@ -359,17 +364,22 @@ def get_summary_detail(
         logger.warning("Summary not found: id=%s", summary_id)
         raise HTTPException(status_code=404, detail="Summary not found")
 
+    orig_wc = int(summary["original_word_count"])
+    summ_wc = int(summary["summary_word_count"])
+    compression_ratio = (summ_wc / orig_wc * 100) if orig_wc > 0 else 0
+
     return SummaryDetailResponse(
         id=summary["id"],
         original_filename=summary["original_filename"],
         page_count=int(summary["page_count"]),
-        original_word_count=int(summary["original_word_count"]),
-        summary_word_count=int(summary["summary_word_count"]),
+        original_word_count=orig_wc,
+        summary_word_count=summ_wc,
         chunks_processed=int(summary["chunks_processed"]),
         summary=summary["summary"],
         file_size=int(summary["file_size"]),
         created_at=summary.get("created_at", ""),
         updated_at=summary.get("updated_at", ""),
+        compression_ratio=round(compression_ratio, 1),
     )
 
 
