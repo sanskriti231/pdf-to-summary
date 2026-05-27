@@ -7,15 +7,16 @@ import logging
 
 from dotenv import load_dotenv
 from pathlib import Path
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from werkzeug.utils import secure_filename
 
-from auth import verify_token
-from db import (init_db, find_or_create_user, create_summary,
+from db import (init_db, find_or_create_user, find_user_by_clerk_id,
+                get_or_create_default_user, create_summary,
                 get_summaries, get_summary, delete_summary)
-from groq_summarizer import summarize_text, chat_with_summary
+from summarizer import generate_summary
+from groq_summarizer import chat_with_summary
 from models import (
     UploadResponse,
     ProcessRequest,
@@ -36,6 +37,9 @@ UPLOAD_FOLDER = os.path.abspath(os.getenv("UPLOAD_FOLDER", os.path.join(os.path.
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {"pdf"}
+
+# Max file size: 100MB
+MAX_FILE_SIZE = 100 * 1024 * 1024
 
 
 def allowed_file(filename: str) -> bool:
@@ -107,7 +111,7 @@ def _remove_citations(text: str) -> str:
 
 def _chunk_text(text: str, chunk_size: int = 240) -> list[str]:
     words = text.split()
-    return [" ".join(words[i : i + chunk_size]) for i in range(0, len(words), chunk_size)]
+    return [" ".join(words[i: i + chunk_size]) for i in range(0, len(words), chunk_size)]
 
 
 # ─── Scalar API Docs ───────────────────────────────────────────────────
@@ -148,8 +152,8 @@ def health_check():
 )
 async def upload_pdf(
     file: UploadFile = File(...),
-    token_payload: dict = Depends(verify_token),
 ):
+    """Upload a PDF file. No authentication required. Max file size: 100MB."""
     if not file.filename or not allowed_file(file.filename):
         raise HTTPException(status_code=400, detail="Invalid file type. Only PDFs allowed.")
 
@@ -157,6 +161,9 @@ async def upload_pdf(
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 100MB.")
+
     with open(filepath, "wb") as f:
         f.write(contents)
 
@@ -180,8 +187,10 @@ async def upload_pdf(
 )
 def process_pdf(
     body: ProcessRequest,
-    token_payload: dict = Depends(verify_token),
 ):
+    """Process an uploaded PDF and generate a summary using the local T5-small model.
+    Optionally provide a `clerk_id` to associate the summary with a signed-in user.
+    """
     filename = secure_filename(body.filename)
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
@@ -198,13 +207,11 @@ def process_pdf(
     original_word_count = len(full_text.split())
     cleaned_text = _remove_citations(full_text)
     cleaned_text = " ".join(cleaned_text.split())
+    # Use 240-word chunks for T5-small (512 token limit)
     chunks = _chunk_text(cleaned_text, 240)
 
-    # Summarize each chunk using Groq
-    summary_parts = []
-    for chunk in chunks:
-        part = summarize_text(chunk)
-        summary_parts.append(part)
+    # Summarize chunks using local T5-small model
+    summary_parts = generate_summary(chunks)
 
     final_summary = "\n".join(summary_parts)
     formatted = textwrap.fill(final_summary, width=100).capitalize()
@@ -217,11 +224,11 @@ def process_pdf(
 
     summary_word_count = len(formatted.split())
 
-    # Save to DB
-    clerk_id = token_payload.get("sub", "")
-    email = token_payload.get("email", "")
-    name = token_payload.get("name", "")
-    user_id = find_or_create_user(clerk_id, email, name)
+    # Determine user — use clerk_id if provided, otherwise use default anonymous user
+    if body.clerk_id:
+        user_id = find_or_create_user(body.clerk_id)
+    else:
+        user_id = get_or_create_default_user()
 
     file_size = os.path.getsize(filepath)
     summary_id = create_summary(
@@ -250,10 +257,13 @@ def process_pdf(
 
 @app.get("/api/summarize/history", response_model=SummaryHistoryResponse)
 def list_summaries(
-    token_payload: dict = Depends(verify_token),
+    clerk_id: str = Query(None, description="Optional — filter summaries by Clerk user ID"),
 ):
-    clerk_id = token_payload.get("sub", "")
-    user_id = find_or_create_user(clerk_id)
+    """List summaries. Optionally filter by `clerk_id`. No authentication required."""
+    user_id = None
+    if clerk_id:
+        user_id = find_user_by_clerk_id(clerk_id)
+
     rows = get_summaries(user_id)
 
     items = [
@@ -280,8 +290,8 @@ def list_summaries(
 )
 def get_summary_detail(
     summary_id: str,
-    token_payload: dict = Depends(verify_token),
 ):
+    """Get a single summary by ID. No authentication required."""
     summary = get_summary(summary_id)
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
@@ -309,11 +319,9 @@ def get_summary_detail(
 )
 def delete_summary_endpoint(
     summary_id: str,
-    token_payload: dict = Depends(verify_token),
 ):
-    clerk_id = token_payload.get("sub", "")
-    user_id = find_or_create_user(clerk_id)
-    deleted = delete_summary(summary_id, user_id)
+    """Delete a summary by ID. No authentication required."""
+    deleted = delete_summary(summary_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Summary not found")
     return {"success": True}
@@ -328,9 +336,8 @@ def delete_summary_endpoint(
 )
 def download_summary(
     filename: str,
-    token_payload: dict = Depends(verify_token),
 ):
-    # Only allow summary .txt files
+    """Download a summary text file. No authentication required."""
     if not filename.endswith("_summary.txt"):
         raise HTTPException(status_code=400, detail="Invalid filename")
 
@@ -351,9 +358,8 @@ def download_summary(
 )
 def chat_with_document(
     body: ChatRequest,
-    token_payload: dict = Depends(verify_token),
 ):
-    """Chat with a previously summarized PDF document."""
+    """Chat with a previously summarized PDF document. No authentication required."""
     summary = get_summary(body.summary_id)
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
@@ -376,4 +382,4 @@ def chat_with_document(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True, timeout_keep_alive=300)

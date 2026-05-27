@@ -7,7 +7,7 @@ import type {
 
 /**
  * Fetch wrapper that calls the Next.js proxy (no CORS issues).
- * Automatically adds Content-Type and Authorization headers.
+ * No authentication headers needed.
  */
 async function fetchApi<T>(
   path: string,
@@ -50,18 +50,12 @@ async function fetchApi<T>(
 }
 
 /** Upload a PDF file */
-export async function uploadPdf(
-  file: File,
-  token: string
-): Promise<UploadResult> {
+export async function uploadPdf(file: File): Promise<UploadResult> {
   const formData = new FormData();
   formData.append("file", file);
 
   const res = await fetch("/api/summarize/upload", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
     body: formData,
   });
 
@@ -82,42 +76,31 @@ export async function uploadPdf(
 /** Process a PDF and get its summary */
 export async function processPdf(
   filename: string,
-  token: string
+  clerkId?: string
 ): Promise<ProcessResult> {
   return fetchApi<ProcessResult>("/api/summarize/process", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ filename }),
+    body: JSON.stringify({ filename, clerk_id: clerkId || undefined }),
   });
 }
 
-/** Get all summaries for the current user */
+/** Get all summaries, optionally filtered by Clerk user ID */
 export async function getHistory(
-  token: string
+  clerkId?: string
 ): Promise<{ summaries: SummaryHistoryItem[] }> {
-  return fetchApi("/api/summarize/history", {
-    headers: { Authorization: `Bearer ${token}` },
-  }, false);
+  const params = clerkId ? `?clerk_id=${encodeURIComponent(clerkId)}` : "";
+  return fetchApi(`/api/summarize/history${params}`, {}, false);
 }
 
 /** Get a single summary by ID */
-export async function getSummary(
-  id: string,
-  token: string
-): Promise<SummaryDetail> {
-  return fetchApi(`/api/summarize/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  }, false);
+export async function getSummary(id: string): Promise<SummaryDetail> {
+  return fetchApi(`/api/summarize/${id}`, {}, false);
 }
 
 /** Delete a summary */
-export async function deleteSummary(
-  id: string,
-  token: string
-): Promise<void> {
+export async function deleteSummary(id: string): Promise<void> {
   const res = await fetch(`/api/summarize/${id}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -133,12 +116,10 @@ export function getDownloadUrl(filename: string) {
 /** Chat with a PDF */
 export async function chatWithPdf(
   summaryId: string,
-  message: string,
-  token: string
+  message: string
 ): Promise<{ response: string }> {
   return fetchApi("/api/summarize/chat", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ summary_id: summaryId, message }),
   });
 }

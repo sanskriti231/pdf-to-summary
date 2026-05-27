@@ -12,8 +12,6 @@ import { DashboardErrorState } from "@/components/dashboard/DashboardErrorState"
 
 export default function DashboardPage() {
   const {
-    isLoaded,
-    isSignedIn,
     filteredSummaries,
     loading,
     error,
@@ -25,18 +23,6 @@ export default function DashboardPage() {
     loadHistory,
     handleDelete,
   } = useDashboard();
-
-  // Show skeleton while auth is loading
-  if (!isLoaded) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center">
-        <div className="h-4 w-4 rounded-full bg-primary/30 skeleton-shimmer" />
-      </div>
-    );
-  }
-
-  // If not signed in, the hook redirects — render nothing
-  if (!isSignedIn) return null;
 
   return (
     <div className="min-h-[100dvh] bg-background">

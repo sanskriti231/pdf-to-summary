@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 
 import type { ChatMessage } from "@/app/summary/types";
 import { chatWithPdf } from "@/app/summary/api";
 
 export function useChat(summaryId: string) {
-  const { getToken } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -34,9 +32,7 @@ export function useChat(summaryId: string) {
     setSending(true);
 
     try {
-      const token = await getToken();
-      if (!token) throw new Error("Authentication failed");
-      const result = await chatWithPdf(summaryId, userMessage, token);
+      const result = await chatWithPdf(summaryId, userMessage);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: result.response },
@@ -48,7 +44,7 @@ export function useChat(summaryId: string) {
     } finally {
       setSending(false);
     }
-  }, [input, sending, summaryId, getToken]);
+  }, [input, sending, summaryId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

@@ -10,6 +10,7 @@ class UploadResponse(BaseModel):
 
 class ProcessRequest(BaseModel):
     filename: str
+    clerk_id: Optional[str] = None
 
 
 class ProcessResponse(BaseModel):

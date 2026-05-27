@@ -14,7 +14,6 @@ import { HomeFooter } from "@/components/home/HomeFooter";
 
 export default function Home() {
   const {
-    isLoaded,
     isDragging,
     file,
     processing,
@@ -26,14 +25,6 @@ export default function Home() {
     handleFileSelect,
     handleReset,
   } = useUpload();
-
-  if (!isLoaded) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-background">
-        <div className="h-4 w-4 rounded-full bg-primary/30 skeleton-shimmer" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-[100dvh] bg-background">

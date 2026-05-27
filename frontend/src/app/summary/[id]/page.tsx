@@ -15,8 +15,6 @@ export default function SummaryDetailPage() {
   const id = params.id as string;
 
   const {
-    isLoaded,
-    isSignedIn,
     summary,
     loading,
     error,
@@ -35,13 +33,9 @@ export default function SummaryDetailPage() {
     handleKeyDown,
   } = useChat(id);
 
-  // Auth loading
-  if (!isLoaded || loading) {
+  if (loading) {
     return <SummarySkeleton />;
   }
-
-  // Redirect if not signed in (handled by the hook)
-  if (!isSignedIn) return null;
 
   // Error state
   if (error && !summary) {

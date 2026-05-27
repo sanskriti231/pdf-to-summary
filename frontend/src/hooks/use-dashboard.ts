@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
 import type { SummaryHistoryItem } from "@/app/dashboard/types";
 import { getHistory, deleteSummary } from "@/app/dashboard/api";
 
 export function useDashboard() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
-  const router = useRouter();
+  const { user } = useUser();
 
   const [summaries, setSummaries] = useState<SummaryHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,9 +21,8 @@ export function useDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const token = await getToken();
-      if (!token) throw new Error("Authentication failed");
-      const data = await getHistory(token);
+      const clerkId = user?.id;
+      const data = await getHistory(clerkId);
       setSummaries(data.summaries);
     } catch (err: unknown) {
       const message =
@@ -35,25 +32,17 @@ export function useDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, [user]);
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.push("/sign-in");
-      return;
-    }
-    if (isLoaded && isSignedIn) {
-      loadHistory();
-    }
-  }, [isLoaded, isSignedIn, loadHistory, router]);
+    loadHistory();
+  }, [loadHistory]);
 
   const handleDelete = useCallback(
     async (id: string) => {
       setDeletingId(id);
       try {
-        const token = await getToken();
-        if (!token) throw new Error("Authentication failed");
-        await deleteSummary(id, token);
+        await deleteSummary(id);
         setSummaries((prev) => prev.filter((s) => s.id !== id));
       } catch (err: unknown) {
         const message =
@@ -63,7 +52,7 @@ export function useDashboard() {
         setDeletingId(null);
       }
     },
-    [getToken]
+    []
   );
 
   const filteredSummaries = summaries.filter((s) =>
@@ -71,8 +60,6 @@ export function useDashboard() {
   );
 
   return {
-    isLoaded,
-    isSignedIn,
     summaries,
     filteredSummaries,
     loading,

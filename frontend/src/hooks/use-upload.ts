@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
 import type { ProcessResult } from "@/app/home/types";
 import { uploadPdf, processPdf } from "@/app/home/api";
 
 export function useUpload() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
-  const router = useRouter();
+  const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -21,12 +19,13 @@ export function useUpload() {
   );
 
   const handleProcess = useCallback(
-    async (filename: string, token: string) => {
+    async (filename: string) => {
       setProcessing(true);
       let processToastId: string | number | undefined;
       try {
         processToastId = toast.loading("Generating summary...");
-        const result = await processPdf(filename, token);
+        const clerkId = user?.id;
+        const result = await processPdf(filename, clerkId);
         setProcessResult(result);
         toast.dismiss(processToastId);
         setTimeout(() => toast.success("Summary ready"), 200);
@@ -39,39 +38,26 @@ export function useUpload() {
         setProcessing(false);
       }
     },
-    []
+    [user]
   );
 
   const handleUpload = useCallback(
     async (pdfFile: File) => {
-      if (!isLoaded) {
-        toast.error("Sign in status loading — please try again");
-        return;
-      }
-      if (!isSignedIn) {
-        toast.error("Please sign in to upload files");
-        router.push("/sign-in");
-        return;
-      }
-
       setFile(pdfFile);
       setProcessResult(null);
 
       try {
-        const token = await getToken();
-        if (!token) throw new Error("Authentication failed");
-
         const loadingToastId = toast.loading("Uploading...");
-        const result = await uploadPdf(pdfFile, token);
+        const result = await uploadPdf(pdfFile);
         toast.dismiss(loadingToastId);
-        await handleProcess(result.filename, token);
+        await handleProcess(result.filename);
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Upload failed";
         toast.error(message);
       }
     },
-    [isLoaded, isSignedIn, getToken, router, handleProcess]
+    [handleProcess]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -118,8 +104,6 @@ export function useUpload() {
   }, []);
 
   return {
-    isLoaded,
-    isSignedIn,
     isDragging,
     file,
     processing,

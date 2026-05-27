@@ -1,17 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import type { SummaryDetail } from "@/app/summary/types";
 import { getSummary } from "@/app/summary/api";
 
 export function useSummary(id: string) {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
-  const router = useRouter();
-
   const [summary, setSummary] = useState<SummaryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +16,7 @@ export function useSummary(id: string) {
     setLoading(true);
     setError(null);
     try {
-      const token = await getToken();
-      if (!token) throw new Error("Authentication failed");
-      const data = await getSummary(id, token);
+      const data = await getSummary(id);
       setSummary(data);
     } catch (err: unknown) {
       const message =
@@ -33,17 +26,13 @@ export function useSummary(id: string) {
     } finally {
       setLoading(false);
     }
-  }, [id, getToken]);
+  }, [id]);
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.push("/sign-in");
-      return;
-    }
-    if (isLoaded && isSignedIn && id) {
+    if (id) {
       loadSummary();
     }
-  }, [isLoaded, isSignedIn, id, loadSummary, router]);
+  }, [id, loadSummary]);
 
   const handleCopySummary = useCallback(() => {
     if (summary?.summary) {
@@ -54,8 +43,6 @@ export function useSummary(id: string) {
   }, [summary]);
 
   return {
-    isLoaded,
-    isSignedIn,
     summary,
     loading,
     error,
