@@ -1,3 +1,3 @@
-import type { SummaryDetail, ChatMessage } from "@/types";
+import type { SummaryDetail, ChatMessage, QuizQuestion, Flashcard } from "@/types";
 
-export type { SummaryDetail, ChatMessage };
+export type { SummaryDetail, ChatMessage, QuizQuestion, Flashcard };

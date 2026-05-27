@@ -17,7 +17,7 @@ from db import (init_db, find_or_create_user, find_user_by_clerk_id,
                 get_or_create_default_user, create_summary,
                 get_summaries, get_summary, delete_summary)
 from summarizer import generate_summary
-from groq_summarizer import chat_with_summary
+from groq_summarizer import chat_with_summary, generate_quiz, generate_flashcards, evaluate_quiz_answer
 from models import (
     UploadResponse,
     ProcessRequest,
@@ -27,6 +27,14 @@ from models import (
     SummaryDetailResponse,
     ChatRequest,
     ChatResponse,
+    QuizRequest,
+    QuizResponse,
+    QuizQuestion,
+    QuizEvaluateRequest,
+    QuizEvaluateResponse,
+    FlashcardRequest,
+    FlashcardResponse,
+    Flashcard,
     ErrorResponse,
 )
 
@@ -462,6 +470,157 @@ def chat_with_document(
     )
 
     return ChatResponse(response=answer)
+
+
+# ─── Quiz Generation ──────────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/quiz",
+    response_model=QuizResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+def generate_summary_quiz(
+    body: QuizRequest,
+):
+    """Generate multiple-choice quiz questions from a document."""
+    start = time.time()
+
+    summary = get_summary(body.summary_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    filepath = os.path.join(UPLOAD_FOLDER, summary["original_filename"])
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Original PDF file not found")
+
+    full_text, _ = _extract_pdf_text(filepath)
+
+    raw = generate_quiz(full_text, body.num_questions)
+
+    # Try to parse the JSON response
+    import json
+
+    # Strip any markdown code fences
+    cleaned = raw.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    if cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+
+    try:
+        questions_data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse quiz JSON, raw=%s", raw[:200])
+        questions_data = []
+
+    questions = [
+        QuizQuestion(
+            question=q["question"],
+            options=q.get("options", []),
+            correctAnswer=q.get("correctAnswer", "A"),
+            explanation=q.get("explanation", ""),
+        )
+        for q in questions_data
+    ]
+
+    elapsed = time.time() - start
+    logger.info(
+        "Quiz generated — summary_id=%s questions=%d time=%.2fs",
+        body.summary_id, len(questions), elapsed,
+    )
+
+    return QuizResponse(questions=questions)
+
+
+# ─── Quiz Evaluation ───────────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/quiz/evaluate",
+    response_model=QuizEvaluateResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+def evaluate_quiz(
+    body: QuizEvaluateRequest,
+):
+    """Evaluate a user's answer to a quiz question."""
+    summary = get_summary(body.summary_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    filepath = os.path.join(UPLOAD_FOLDER, summary["original_filename"])
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Original PDF file not found")
+
+    full_text, _ = _extract_pdf_text(filepath)
+
+    feedback = evaluate_quiz_answer(
+        full_text, body.question, body.user_answer, body.correct_answer
+    )
+
+    return QuizEvaluateResponse(feedback=feedback)
+
+
+# ─── Flashcard Generation ──────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/flashcards",
+    response_model=FlashcardResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+def generate_summary_flashcards(
+    body: FlashcardRequest,
+):
+    """Generate flashcards from a document."""
+    start = time.time()
+
+    summary = get_summary(body.summary_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    filepath = os.path.join(UPLOAD_FOLDER, summary["original_filename"])
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Original PDF file not found")
+
+    full_text, _ = _extract_pdf_text(filepath)
+
+    raw = generate_flashcards(full_text, body.num_cards)
+
+    # Parse JSON
+    import json
+
+    cleaned = raw.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    if cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+
+    try:
+        cards_data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse flashcards JSON, raw=%s", raw[:200])
+        cards_data = []
+
+    cards = [
+        Flashcard(front=c["front"], back=c["back"])
+        for c in cards_data
+    ]
+
+    elapsed = time.time() - start
+    logger.info(
+        "Flashcards generated — summary_id=%s cards=%d time=%.2fs",
+        body.summary_id, len(cards), elapsed,
+    )
+
+    return FlashcardResponse(cards=cards)
 
 
 # ─── Entry point ───────────────────────────────────────────────────────

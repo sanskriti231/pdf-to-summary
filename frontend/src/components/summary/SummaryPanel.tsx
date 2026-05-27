@@ -2,14 +2,15 @@ import type { SummaryDetail } from "@/app/summary/types";
 
 interface SummaryPanelProps {
   summary: SummaryDetail;
+  fullWidth?: boolean;
 }
 
-export function SummaryPanel({ summary }: SummaryPanelProps) {
+export function SummaryPanel({ summary, fullWidth }: SummaryPanelProps) {
   const compressionRatio = summary.compression_ratio ??
     Math.round((summary.summary_word_count / summary.original_word_count) * 100);
 
   return (
-    <div className="hidden w-1/2 flex-col border-r lg:flex">
+    <div className={`${fullWidth ? "w-full" : "hidden w-1/2 lg:flex"} flex-col border-r`}>
       {/* Header stats */}
       <div className="flex border-b">
         <div className="flex-1 px-5 py-3">
