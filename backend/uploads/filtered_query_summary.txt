@@ -1,0 +1,28 @@
+Here's a concise summary of the provided text:  **single native query approach**  the query uses
+window functions and does not use `row_to_json`. it maps columns by name instead of auto-
+deserializing a json blob into a jpa entity.  **query structure**  the query consists of two common
+table expressions (ctes): `filtered` and `counts`.  1. `filtered` cte:         * selects data from
+`loan_applications` table.         * applies filters based on `assignedto`, `statusprovided`,
+`search`, `datefrom`, and `dateto` parameters. 2. `counts` cte:         * selects count of rows with
+different status codes (total, open, closed, in_progress).         * uses `filter` clause to count
+rows with specific status codes. 3. main query:         * selects columns from `filtered` cte and
+`counts` cte.         * uses `cross join` to combine data from both ctes.         * orders results
+by `created_at` column in descending order.         * limits results to `:limit` parameter.
+**column selection**  the query selects all columns from `loan_applications` table, except for the
+ones that are not explicitly mentioned. here is a concise summary of the provided text:  **dto
+class:** the `applicationwithcountsdto` class is defined to hold data transfer object (dto)
+properties for loan applications, including counts and flattened loan application fields.
+**repository method:** the `searchapplicationswithcounts` method in the repository uses a native sql
+query to retrieve loan applications with counts. the query uses common table expressions (ctes) to
+filter and count applications, and applies pagination with `limit` and `offset` parameters.  **key
+fixes:** several issues were addressed in the original code, including:  - changing the table name
+from `loan_application` to `loan_applications`. - flattening all columns with a prefix (`la_`) to
+resolve mapping issues. - applying all where conditions in the `filtered` cte and using it to read
+counts in the `counts` cte. - using `count(*) filter (where ...)` for filtered counts instead of
+`sum(case when ...)`. - adding pagination with `limit` and `offset` parameters. here is a concise
+summary of the provided text:  **status code mapping:** - '12' = open - '02' = closed - '00', '01' =
+in_progress  **query options:**  1. **single query approach:** - flattens all columns of
+`loan_applications` into a dto - works reliably with spring data native queries, but may introduce
+null-type risks  2. **two query approach:** - uses existing paginated jpql for data retrieval - adds
+a separate native query for counts only - avoids dto bloat and keeps existing pagination working
+**recommendation:** the two-query approach is recommended due to less code change and less risk.
