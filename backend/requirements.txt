@@ -1,0 +1,17 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pymupdf==1.25.3
+groq==0.14.0
+PyJWT==2.10.1
+requests==2.32.3
+python-dotenv==1.0.1
+cryptography==44.0.0
+werkzeug==3.1.8
+libsql==0.1.11
+transformers==4.41.2
+torch
+sentencepiece
+tf-keras
+tensorflow
+h5py

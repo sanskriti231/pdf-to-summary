@@ -1,0 +1,335 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+
+import type { SummaryDetail } from "@/app/summary/types";
+import type { Flashcard } from "@/types";
+import { generateFlashcards } from "@/app/summary/api";
+
+interface FlashcardPanelProps {
+  summary: SummaryDetail;
+}
+
+export function FlashcardPanel({ summary }: FlashcardPanelProps) {
+  const [cards, setCards] = useState<Flashcard[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [numCards, setNumCards] = useState(8);
+  const [knownCards, setKnownCards] = useState<Set<number>>(new Set());
+  const [showKnown, setShowKnown] = useState(true);
+
+  const startFlashcards = useCallback(async () => {
+    if (loading) return;
+    setLoading(true);
+    setCards([]);
+    setCurrentIndex(0);
+    setFlipped(false);
+    setKnownCards(new Set());
+    try {
+      const result = await generateFlashcards(summary.id, numCards);
+      setCards(result.cards);
+      setStarted(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to generate flashcards";
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [summary.id, numCards, loading]);
+
+  const flipCard = useCallback(() => {
+    setFlipped((prev) => !prev);
+  }, []);
+
+  const markKnown = useCallback(() => {
+    setKnownCards((prev) => new Set(prev).add(currentIndex));
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setFlipped(false);
+    }
+  }, [currentIndex, cards.length]);
+
+  const markUnknown = useCallback(() => {
+    const newSet = new Set(knownCards);
+    newSet.delete(currentIndex);
+    setKnownCards(newSet);
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setFlipped(false);
+    }
+  }, [currentIndex, cards.length, knownCards]);
+
+  const goNext = useCallback(() => {
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setFlipped(false);
+    }
+  }, [currentIndex, cards.length]);
+
+  const goPrev = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+      setFlipped(false);
+    }
+  }, [currentIndex]);
+
+  const reset = useCallback(() => {
+    setStarted(false);
+    setCards([]);
+    setCurrentIndex(0);
+    setFlipped(false);
+    setKnownCards(new Set());
+  }, []);
+
+  const progress = cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0;
+
+  if (!started) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="max-w-sm text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40">
+              <path d="M5 5h14a1 1 0 011 1v11a1 1 0 01-1 1H9l-5 3V6a1 1 0 011-1z"/>
+              <path d="M9 10h6M9 13h4"/>
+            </svg>
+          </div>
+          <h3 className="mt-4 text-base font-semibold text-foreground">Study Flashcards</h3>
+          <p className="mt-1.5 text-sm text-muted-foreground/60 leading-relaxed">
+            Review key concepts from this document with interactive flashcards. Flip to reveal the answer.
+          </p>
+          <div className="mt-5 flex items-center justify-center gap-2">
+            <label className="text-sm text-muted-foreground/60">Cards:</label>
+            {[5, 8, 12].map((n) => (
+              <button
+                key={n}
+                onClick={() => setNumCards(n)}
+                className={`rounded px-3 py-1 text-sm transition-colors ${
+                  numCards === n
+                    ? "bg-foreground text-background"
+                    : "bg-muted/30 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={startFlashcards}
+            disabled={loading}
+            className="mt-5 inline-flex items-center gap-1.5 rounded bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-all hover:opacity-90 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                  <polygon points="3,2 10,6 3,10" fill="currentColor"/>
+                </svg>
+                Start Studying
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (cards.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground/50">No cards generated</p>
+          <button onClick={reset} className="mt-3 text-xs text-muted-foreground underline hover:text-foreground">
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const current = cards[currentIndex];
+  const isKnown = knownCards.has(currentIndex);
+
+  return (
+    <div className="flex flex-1 flex-col min-h-0">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b px-5 py-3">
+        <span className="text-sm text-muted-foreground/60">
+          Card {currentIndex + 1} of {cards.length}
+        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowKnown((prev) => !prev)}
+            className={`text-sm transition-colors ${
+              showKnown ? "text-muted-foreground/60" : "text-foreground"
+            }`}
+          >
+            {showKnown ? "All cards" : `Unknown (${cards.length - knownCards.size})`}
+          </button>
+          <button
+            onClick={reset}
+            className="text-sm text-muted-foreground/40 transition-colors hover:text-foreground"
+          >
+            End study
+          </button>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div className="h-0.5 w-full bg-muted/30">
+        <div
+          className="h-full bg-foreground/20 transition-all"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Flashcard with proper 3D flip */}
+      <div className="flex flex-1 items-center justify-center p-6">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentIndex}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="w-full max-w-lg"
+            style={{ perspective: "1000px" }}
+          >
+            <div
+              onClick={flipCard}
+              className="relative w-full cursor-pointer"
+              style={{ transformStyle: "preserve-3d", minHeight: "220px" }}
+            >
+              {/* Front face */}
+              <motion.div
+                animate={{ rotateY: flipped ? 180 : 0 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className="absolute inset-0 rounded-xl border bg-background p-8 text-center"
+                style={{ backfaceVisibility: "hidden" }}
+              >
+                <span className="mb-3 inline-block rounded bg-muted/30 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
+                  Question
+                </span>
+                <p className="text-base font-medium leading-relaxed text-foreground">
+                  {current.front}
+                </p>
+                <div className="mt-6 flex justify-center">
+                  <div className="flex items-center gap-1.5 rounded-full bg-muted/30 px-3 py-1">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-muted-foreground/30">
+                      <path d="M5 1v8M9 5H1" strokeLinecap="round"/>
+                    </svg>
+                    <span className="text-xs text-muted-foreground/40">
+                      tap to reveal
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Back face */}
+              <motion.div
+                animate={{ rotateY: flipped ? 0 : 180 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className="absolute inset-0 rounded-xl border bg-background p-8 text-center"
+                style={{ backfaceVisibility: "hidden" }}
+              >
+                <span className="mb-3 inline-block rounded bg-muted/30 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
+                  Answer
+                </span>
+                <p className="text-base leading-relaxed text-foreground">
+                  {current.back}
+                </p>
+                <div className="mt-6 flex justify-center">
+                  <div className="flex items-center gap-1.5 rounded-full bg-muted/30 px-3 py-1">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-muted-foreground/30">
+                      <path d="M5 1v8M9 5H1" strokeLinecap="round"/>
+                    </svg>
+                    <span className="text-xs text-muted-foreground/40">
+                      tap to hide
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Spacer to maintain height */}
+              <div className="invisible p-8">
+                <p className="text-base">&nbsp;</p>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Controls */}
+      {flipped && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border-t px-5 py-3"
+        >
+          <div className="flex items-center justify-between">
+            <button
+              onClick={goPrev}
+              disabled={currentIndex === 0}
+              className="flex items-center gap-1 text-sm text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-20"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                <path d="M8 3.5L4.5 7 8 10.5"/>
+              </svg>
+              Previous
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={markKnown}
+                className="inline-flex items-center gap-1.5 rounded bg-foreground px-4 py-2 text-sm font-medium text-background transition-all hover:opacity-80"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M3 7l3 3 5-5"/>
+                </svg>
+                Know it
+              </button>
+              <button
+                onClick={markUnknown}
+                className="inline-flex items-center gap-1.5 rounded border bg-background px-4 py-2 text-sm font-medium text-foreground transition-all hover:bg-muted/30"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M5 5l4 4M9 5l-4 4"/>
+                </svg>
+                Still learning
+              </button>
+            </div>
+
+            {currentIndex < cards.length - 1 ? (
+              <button
+                onClick={goNext}
+                className="flex items-center gap-1 text-sm text-muted-foreground/50 transition-colors hover:text-foreground"
+              >
+                Next
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                  <path d="M6 3.5l3.5 3.5L6 10.5"/>
+                </svg>
+              </button>
+            ) : (
+              <button
+                onClick={reset}
+                className="inline-flex items-center gap-1.5 rounded bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-all hover:opacity-90"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                  <polygon points="4,2.5 11,7 4,11.5" fill="currentColor"/>
+                </svg>
+                New Set
+              </button>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}

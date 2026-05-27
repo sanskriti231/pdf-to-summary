@@ -1,0 +1,631 @@
+import os
+import re
+import time
+import textwrap
+import uuid
+import logging
+from contextlib import asynccontextmanager
+
+from dotenv import load_dotenv
+from pathlib import Path
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
+from werkzeug.utils import secure_filename
+
+from db import (init_db, find_or_create_user, find_user_by_clerk_id,
+                get_or_create_default_user, create_summary,
+                get_summaries, get_summary, delete_summary)
+from summarizer import generate_summary
+from groq_summarizer import chat_with_summary, generate_quiz, generate_flashcards, evaluate_quiz_answer
+from models import (
+    UploadResponse,
+    ProcessRequest,
+    ProcessResponse,
+    SummaryHistoryResponse,
+    SummaryHistoryItem,
+    SummaryDetailResponse,
+    ChatRequest,
+    ChatResponse,
+    QuizRequest,
+    QuizResponse,
+    QuizQuestion,
+    QuizEvaluateRequest,
+    QuizEvaluateResponse,
+    FlashcardRequest,
+    FlashcardResponse,
+    Flashcard,
+    ErrorResponse,
+)
+
+# ─── Logging setup ─────────────────────────────────────────────────────
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-5s  %(name)s  %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("pdf-to-summary")
+
+# Always load .env from the backend directory regardless of CWD
+dotenv_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path)
+
+UPLOAD_FOLDER = os.path.abspath(os.getenv("UPLOAD_FOLDER", os.path.join(os.path.dirname(__file__), "uploads")))
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {"pdf"}
+
+# Max file size: 100MB
+MAX_FILE_SIZE = 100 * 1024 * 1024
+
+
+def allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: ensure DB tables exist."""
+    logger.info("Starting PDF-to-Summary API server...")
+    db_ok = init_db()
+    if not db_ok:
+        logger.warning("Database not available at startup — will retry on first request")
+    else:
+        logger.info("Database initialized successfully")
+    yield
+    logger.info("Shutting down PDF-to-Summary API server")
+
+
+app = FastAPI(
+    title="PDF-to-Summary API",
+    description="Upload PDFs, get AI-powered summaries, and chat with your documents.",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ─── Request logging middleware ────────────────────────────────────────
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    request_id = uuid.uuid4().hex[:8]
+    start = time.time()
+    method = request.method
+    path = request.url.path
+
+    logger.info("[%s] %s %s — started", request_id, method, path)
+
+    response = await call_next(request)
+
+    elapsed = time.time() - start
+    logger.info(
+        "[%s] %s %s — %s %.2fs",
+        request_id, method, path, response.status_code, elapsed,
+    )
+
+    return response
+
+
+# ─── Helper ────────────────────────────────────────────────────────────
+
+
+def _extract_pdf_text(pdf_path: str) -> tuple[str, list[str]]:
+    """Extract text from PDF. Returns (full_text, per_page_texts)."""
+    import fitz
+
+    doc = fitz.open(pdf_path)
+    full_text = ""
+    pages_text = []
+    for page in doc:
+        page_text = page.get_text()
+        pages_text.append(page_text)
+        full_text += page_text
+    doc.close()
+    return full_text, pages_text
+
+
+def _get_pdf_page_count(pdf_path: str) -> int:
+    import fitz
+
+    try:
+        doc = fitz.open(pdf_path)
+        count = len(doc)
+        doc.close()
+        return count
+    except Exception:
+        return 0
+
+
+def _remove_citations(text: str) -> str:
+    text = re.sub(r"\[\d+\]", "", text)
+    text = re.sub(r"\(\w+ et al\., \d{4}\)", "", text)
+    return text
+
+
+def _chunk_text(text: str, chunk_size: int = 240) -> list[str]:
+    words = text.split()
+    return [" ".join(words[i: i + chunk_size]) for i in range(0, len(words), chunk_size)]
+
+
+# ─── Scalar API Docs ───────────────────────────────────────────────────
+
+
+@app.get("/scalar", include_in_schema=False)
+async def scalar_docs():
+    """Render Scalar API reference page."""
+    return HTMLResponse(f"""
+<!doctype html>
+<html>
+<head>
+    <title>PDF-to-Summary API Reference</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>" />
+</head>
+<body>
+    <script id="api-reference" data-url="/openapi.json"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>
+""")
+
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "service": "pdf-to-summary"}
+
+
+# ─── Upload ────────────────────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/upload",
+    response_model=UploadResponse,
+    responses={400: {"model": ErrorResponse}},
+)
+async def upload_pdf(
+    file: UploadFile = File(...),
+):
+    """Upload a PDF file. No authentication required. Max file size: 100MB."""
+    start = time.time()
+
+    if not file.filename or not allowed_file(file.filename):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDFs allowed.")
+
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 100MB.")
+
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    page_count = _get_pdf_page_count(filepath)
+    if page_count == 0:
+        os.remove(filepath)
+        raise HTTPException(status_code=400, detail="Invalid PDF file. Could not read pages.")
+
+    file_size = os.path.getsize(filepath)
+    elapsed = time.time() - start
+
+    logger.info(
+        "Uploaded — file=%s pages=%d size=%dMB time=%.2fs",
+        filename, page_count, file_size // (1024 * 1024), elapsed,
+    )
+
+    return UploadResponse(filename=filename, page_count=page_count, file_size=file_size)
+
+
+# ─── Process ───────────────────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/process",
+    response_model=ProcessResponse,
+    responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+)
+def process_pdf(
+    body: ProcessRequest,
+):
+    """Process an uploaded PDF and generate a summary using the local T5-small model."""
+    start = time.time()
+
+    filename = secure_filename(body.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found. Upload the PDF first.")
+
+    full_text, pages_text = _extract_pdf_text(filepath)
+    if not full_text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Could not extract text from PDF. The file may contain scanned images.",
+        )
+
+    original_word_count = len(full_text.split())
+    cleaned_text = _remove_citations(full_text)
+    cleaned_text = " ".join(cleaned_text.split())
+    chunks = _chunk_text(cleaned_text, 240)
+
+    logger.info(
+        "Processing — file=%s pages=%d words=%d chunks=%d",
+        filename, len(pages_text), original_word_count, len(chunks),
+    )
+
+    # Summarize chunks using local T5-small model (timed)
+    gen_start = time.time()
+    summary_parts = generate_summary(chunks)
+    gen_elapsed = time.time() - gen_start
+
+    final_summary = "\n".join(summary_parts)
+    formatted = textwrap.fill(final_summary, width=100).capitalize()
+
+    # Save summary file
+    summary_filename = filename.rsplit(".", 1)[0] + "_summary.txt"
+    summary_path = os.path.join(UPLOAD_FOLDER, summary_filename)
+    with open(summary_path, "w", encoding="utf-8") as f:
+        f.write(formatted)
+
+    summary_word_count = len(formatted.split())
+
+    # Determine user
+    if body.clerk_id:
+        user_id = find_or_create_user(body.clerk_id)
+    else:
+        user_id = get_or_create_default_user()
+
+    file_size = os.path.getsize(filepath)
+    summary_id = create_summary(
+        user_id=user_id,
+        original_filename=filename,
+        page_count=len(pages_text),
+        original_word_count=original_word_count,
+        summary_word_count=summary_word_count,
+        chunks_processed=len(chunks),
+        summary=formatted,
+        file_size=file_size,
+    )
+
+    total_elapsed = time.time() - start
+    logger.info(
+        "Summarized — id=%s file=%s chunks=%d gen_time=%.2fs total_time=%.2fs "
+        "original=%d summary=%d ratio=%.1f%%",
+        summary_id, filename, len(chunks), gen_elapsed, total_elapsed,
+        original_word_count, summary_word_count,
+        (summary_word_count / original_word_count * 100) if original_word_count > 0 else 0,
+    )
+
+    compression_ratio = (summary_word_count / original_word_count * 100) if original_word_count > 0 else 0
+
+    return ProcessResponse(
+        summary=formatted,
+        summary_word_count=summary_word_count,
+        original_word_count=original_word_count,
+        chunks_processed=len(chunks),
+        page_count=len(pages_text),
+        id=summary_id,
+        gen_time=round(gen_elapsed, 2),
+        total_time=round(total_elapsed, 2),
+        compression_ratio=round(compression_ratio, 1),
+    )
+
+
+# ─── History ───────────────────────────────────────────────────────────
+
+
+@app.get("/api/summarize/history", response_model=SummaryHistoryResponse)
+def list_summaries(
+    clerk_id: str = Query(None, description="Optional — filter summaries by Clerk user ID"),
+):
+    """List summaries. Optionally filter by `clerk_id`. No authentication required."""
+    user_id = None
+    if clerk_id:
+        user_id = find_user_by_clerk_id(clerk_id)
+        logger.debug("History filtered by clerk_id=%s -> user_id=%s", clerk_id, user_id)
+
+    rows = get_summaries(user_id)
+    logger.info("History returned %d summaries (user_id=%s)", len(rows), user_id)
+
+    items = [
+        SummaryHistoryItem(
+            id=r["id"],
+            original_filename=r["original_filename"],
+            page_count=int(r["page_count"]),
+            summary_word_count=int(r["summary_word_count"]),
+            original_word_count=int(r["original_word_count"]),
+            created_at=r.get("created_at", ""),
+        )
+        for r in rows
+    ]
+    return SummaryHistoryResponse(summaries=items)
+
+
+# ─── Single Summary ────────────────────────────────────────────────────
+
+
+@app.get(
+    "/api/summarize/{summary_id}",
+    response_model=SummaryDetailResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+def get_summary_detail(
+    summary_id: str,
+):
+    """Get a single summary by ID. No authentication required."""
+    summary = get_summary(summary_id)
+    if not summary:
+        logger.warning("Summary not found: id=%s", summary_id)
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    orig_wc = int(summary["original_word_count"])
+    summ_wc = int(summary["summary_word_count"])
+    compression_ratio = (summ_wc / orig_wc * 100) if orig_wc > 0 else 0
+
+    return SummaryDetailResponse(
+        id=summary["id"],
+        original_filename=summary["original_filename"],
+        page_count=int(summary["page_count"]),
+        original_word_count=orig_wc,
+        summary_word_count=summ_wc,
+        chunks_processed=int(summary["chunks_processed"]),
+        summary=summary["summary"],
+        file_size=int(summary["file_size"]),
+        created_at=summary.get("created_at", ""),
+        updated_at=summary.get("updated_at", ""),
+        compression_ratio=round(compression_ratio, 1),
+    )
+
+
+# ─── Delete ────────────────────────────────────────────────────────────
+
+
+@app.delete(
+    "/api/summarize/{summary_id}",
+    responses={404: {"model": ErrorResponse}},
+)
+def delete_summary_endpoint(
+    summary_id: str,
+):
+    """Delete a summary by ID. No authentication required."""
+    deleted = delete_summary(summary_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Summary not found")
+    logger.info("Deleted summary id=%s", summary_id)
+    return {"success": True}
+
+
+# ─── Download ──────────────────────────────────────────────────────────
+
+
+@app.get(
+    "/api/summarize/download/{filename:path}",
+    responses={404: {"model": ErrorResponse}},
+)
+def download_summary(
+    filename: str,
+):
+    """Download a summary text file. No authentication required."""
+    if not filename.endswith("_summary.txt"):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(filepath, filename=filename, media_type="text/plain")
+
+
+# ─── Chat with PDF ─────────────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/chat",
+    response_model=ChatResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+def chat_with_document(
+    body: ChatRequest,
+):
+    """Chat with a previously summarized PDF document. No authentication required."""
+    start = time.time()
+
+    summary = get_summary(body.summary_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    original_filename = summary["original_filename"]
+    filepath = os.path.join(UPLOAD_FOLDER, original_filename)
+
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Original PDF file not found")
+
+    full_text, _ = _extract_pdf_text(filepath)
+
+    logger.info(
+        "Chat — summary_id=%s file=%s text_len=%d",
+        body.summary_id, original_filename, len(full_text),
+    )
+
+    answer = chat_with_summary(full_text, body.message)
+
+    elapsed = time.time() - start
+    logger.info(
+        "Chat response — summary_id=%s time=%.2fs response_len=%d",
+        body.summary_id, elapsed, len(answer),
+    )
+
+    return ChatResponse(response=answer)
+
+
+# ─── Quiz Generation ──────────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/quiz",
+    response_model=QuizResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+def generate_summary_quiz(
+    body: QuizRequest,
+):
+    """Generate multiple-choice quiz questions from a document."""
+    start = time.time()
+
+    summary = get_summary(body.summary_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    filepath = os.path.join(UPLOAD_FOLDER, summary["original_filename"])
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Original PDF file not found")
+
+    full_text, _ = _extract_pdf_text(filepath)
+
+    raw = generate_quiz(full_text, body.num_questions)
+
+    # Try to parse the JSON response
+    import json
+
+    # Strip any markdown code fences
+    cleaned = raw.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    if cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+
+    try:
+        questions_data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse quiz JSON, raw=%s", raw[:200])
+        questions_data = []
+
+    questions = [
+        QuizQuestion(
+            question=q["question"],
+            options=q.get("options", []),
+            correctAnswer=q.get("correctAnswer", "A"),
+            explanation=q.get("explanation", ""),
+        )
+        for q in questions_data
+    ]
+
+    elapsed = time.time() - start
+    logger.info(
+        "Quiz generated — summary_id=%s questions=%d time=%.2fs",
+        body.summary_id, len(questions), elapsed,
+    )
+
+    return QuizResponse(questions=questions)
+
+
+# ─── Quiz Evaluation ───────────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/quiz/evaluate",
+    response_model=QuizEvaluateResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+def evaluate_quiz(
+    body: QuizEvaluateRequest,
+):
+    """Evaluate a user's answer to a quiz question."""
+    summary = get_summary(body.summary_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    filepath = os.path.join(UPLOAD_FOLDER, summary["original_filename"])
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Original PDF file not found")
+
+    full_text, _ = _extract_pdf_text(filepath)
+
+    feedback = evaluate_quiz_answer(
+        full_text, body.question, body.user_answer, body.correct_answer
+    )
+
+    return QuizEvaluateResponse(feedback=feedback)
+
+
+# ─── Flashcard Generation ──────────────────────────────────────────────
+
+
+@app.post(
+    "/api/summarize/flashcards",
+    response_model=FlashcardResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+def generate_summary_flashcards(
+    body: FlashcardRequest,
+):
+    """Generate flashcards from a document."""
+    start = time.time()
+
+    summary = get_summary(body.summary_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    filepath = os.path.join(UPLOAD_FOLDER, summary["original_filename"])
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Original PDF file not found")
+
+    full_text, _ = _extract_pdf_text(filepath)
+
+    raw = generate_flashcards(full_text, body.num_cards)
+
+    # Parse JSON
+    import json
+
+    cleaned = raw.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    if cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+
+    try:
+        cards_data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse flashcards JSON, raw=%s", raw[:200])
+        cards_data = []
+
+    cards = [
+        Flashcard(front=c["front"], back=c["back"])
+        for c in cards_data
+    ]
+
+    elapsed = time.time() - start
+    logger.info(
+        "Flashcards generated — summary_id=%s cards=%d time=%.2fs",
+        body.summary_id, len(cards), elapsed,
+    )
+
+    return FlashcardResponse(cards=cards)
+
+
+# ─── Entry point ───────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True, timeout_keep_alive=300)
