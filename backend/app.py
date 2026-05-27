@@ -1,13 +1,14 @@
 import os
 import re
+import time
 import textwrap
-from contextlib import asynccontextmanager
-
+import uuid
 import logging
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from pathlib import Path
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from werkzeug.utils import secure_filename
@@ -29,6 +30,15 @@ from models import (
     ErrorResponse,
 )
 
+# ─── Logging setup ─────────────────────────────────────────────────────
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-5s  %(name)s  %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("pdf-to-summary")
+
 # Always load .env from the backend directory regardless of CWD
 dotenv_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path)
@@ -49,10 +59,14 @@ def allowed_file(filename: str) -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: ensure DB tables exist."""
+    logger.info("Starting PDF-to-Summary API server...")
     db_ok = init_db()
     if not db_ok:
-        logging.warning("Database not available at startup — will retry on first request")
+        logger.warning("Database not available at startup — will retry on first request")
+    else:
+        logger.info("Database initialized successfully")
     yield
+    logger.info("Shutting down PDF-to-Summary API server")
 
 
 app = FastAPI(
@@ -71,6 +85,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ─── Request logging middleware ────────────────────────────────────────
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    request_id = uuid.uuid4().hex[:8]
+    start = time.time()
+    method = request.method
+    path = request.url.path
+
+    logger.info("[%s] %s %s — started", request_id, method, path)
+
+    response = await call_next(request)
+
+    elapsed = time.time() - start
+    logger.info(
+        "[%s] %s %s — %s %.2fs",
+        request_id, method, path, response.status_code, elapsed,
+    )
+
+    return response
 
 
 # ─── Helper ────────────────────────────────────────────────────────────
@@ -154,6 +191,8 @@ async def upload_pdf(
     file: UploadFile = File(...),
 ):
     """Upload a PDF file. No authentication required. Max file size: 100MB."""
+    start = time.time()
+
     if not file.filename or not allowed_file(file.filename):
         raise HTTPException(status_code=400, detail="Invalid file type. Only PDFs allowed.")
 
@@ -173,6 +212,12 @@ async def upload_pdf(
         raise HTTPException(status_code=400, detail="Invalid PDF file. Could not read pages.")
 
     file_size = os.path.getsize(filepath)
+    elapsed = time.time() - start
+
+    logger.info(
+        "Uploaded — file=%s pages=%d size=%dMB time=%.2fs",
+        filename, page_count, file_size // (1024 * 1024), elapsed,
+    )
 
     return UploadResponse(filename=filename, page_count=page_count, file_size=file_size)
 
@@ -188,9 +233,9 @@ async def upload_pdf(
 def process_pdf(
     body: ProcessRequest,
 ):
-    """Process an uploaded PDF and generate a summary using the local T5-small model.
-    Optionally provide a `clerk_id` to associate the summary with a signed-in user.
-    """
+    """Process an uploaded PDF and generate a summary using the local T5-small model."""
+    start = time.time()
+
     filename = secure_filename(body.filename)
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
@@ -207,11 +252,17 @@ def process_pdf(
     original_word_count = len(full_text.split())
     cleaned_text = _remove_citations(full_text)
     cleaned_text = " ".join(cleaned_text.split())
-    # Use 240-word chunks for T5-small (512 token limit)
     chunks = _chunk_text(cleaned_text, 240)
 
-    # Summarize chunks using local T5-small model
+    logger.info(
+        "Processing — file=%s pages=%d words=%d chunks=%d",
+        filename, len(pages_text), original_word_count, len(chunks),
+    )
+
+    # Summarize chunks using local T5-small model (timed)
+    gen_start = time.time()
     summary_parts = generate_summary(chunks)
+    gen_elapsed = time.time() - gen_start
 
     final_summary = "\n".join(summary_parts)
     formatted = textwrap.fill(final_summary, width=100).capitalize()
@@ -224,7 +275,7 @@ def process_pdf(
 
     summary_word_count = len(formatted.split())
 
-    # Determine user — use clerk_id if provided, otherwise use default anonymous user
+    # Determine user
     if body.clerk_id:
         user_id = find_or_create_user(body.clerk_id)
     else:
@@ -240,6 +291,15 @@ def process_pdf(
         chunks_processed=len(chunks),
         summary=formatted,
         file_size=file_size,
+    )
+
+    total_elapsed = time.time() - start
+    logger.info(
+        "Summarized — id=%s file=%s chunks=%d gen_time=%.2fs total_time=%.2fs "
+        "original=%d summary=%d ratio=%.1f%%",
+        summary_id, filename, len(chunks), gen_elapsed, total_elapsed,
+        original_word_count, summary_word_count,
+        (summary_word_count / original_word_count * 100) if original_word_count > 0 else 0,
     )
 
     return ProcessResponse(
@@ -263,8 +323,10 @@ def list_summaries(
     user_id = None
     if clerk_id:
         user_id = find_user_by_clerk_id(clerk_id)
+        logger.debug("History filtered by clerk_id=%s -> user_id=%s", clerk_id, user_id)
 
     rows = get_summaries(user_id)
+    logger.info("History returned %d summaries (user_id=%s)", len(rows), user_id)
 
     items = [
         SummaryHistoryItem(
@@ -294,6 +356,7 @@ def get_summary_detail(
     """Get a single summary by ID. No authentication required."""
     summary = get_summary(summary_id)
     if not summary:
+        logger.warning("Summary not found: id=%s", summary_id)
         raise HTTPException(status_code=404, detail="Summary not found")
 
     return SummaryDetailResponse(
@@ -324,6 +387,7 @@ def delete_summary_endpoint(
     deleted = delete_summary(summary_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Summary not found")
+    logger.info("Deleted summary id=%s", summary_id)
     return {"success": True}
 
 
@@ -360,11 +424,12 @@ def chat_with_document(
     body: ChatRequest,
 ):
     """Chat with a previously summarized PDF document. No authentication required."""
+    start = time.time()
+
     summary = get_summary(body.summary_id)
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
 
-    # Re-read the original PDF to get full text
     original_filename = summary["original_filename"]
     filepath = os.path.join(UPLOAD_FOLDER, original_filename)
 
@@ -373,7 +438,19 @@ def chat_with_document(
 
     full_text, _ = _extract_pdf_text(filepath)
 
+    logger.info(
+        "Chat — summary_id=%s file=%s text_len=%d",
+        body.summary_id, original_filename, len(full_text),
+    )
+
     answer = chat_with_summary(full_text, body.message)
+
+    elapsed = time.time() - start
+    logger.info(
+        "Chat response — summary_id=%s time=%.2fs response_len=%d",
+        body.summary_id, elapsed, len(answer),
+    )
+
     return ChatResponse(response=answer)
 
 

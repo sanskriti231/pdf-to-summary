@@ -10,18 +10,20 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd)"
 
 # ─── Kill stale processes ─────────────────────────────────────────────
 
 for port in 8000 3000; do
-  pid=$(lsof -ti :"$port" 2>/dev/null || true)
-  if [ -n "$pid" ]; then
-    echo -e "${YELLOW}  → Killing stale process on port $port (PID $pid)${NC}"
-    kill -9 "$pid" 2>/dev/null || true
-    sleep 1
+  pids=$(lsof -ti :"$port" 2>/dev/null || true)
+  if [ -n "$pids" ]; then
+    echo -e "${YELLOW}  → Killing stale process on port $port${NC}"
+    # Unquoted so newline-separated PIDs from lsof become separate args
+    kill -9 $pids 2>/dev/null || true
+    sleep 2
   fi
 done
 
@@ -52,7 +54,7 @@ if [ -f ".env" ]; then
     set +o allexport
 fi
 
-# Start backend in background
+# Start backend in background, log to file
 nohup uvicorn app:app --host 0.0.0.0 --port 8000 --reload --timeout-keep-alive 300 > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
 sleep 2
@@ -74,14 +76,11 @@ fi
 echo -e "${GREEN}  ✓ Frontend starting on http://localhost:3000${NC}"
 echo ""
 
-# Start frontend in background
+# Start frontend in background, log to file
 npm run dev > /tmp/frontend.log 2>&1 &
 FRONTEND_PID=$!
 
-# Trap to kill both processes
-trap "echo ''; echo 'Shutting down...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; wait $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0" INT TERM
-
-sleep 3
+sleep 4
 
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}  Frontend:  http://localhost:3000${NC}"
@@ -89,6 +88,23 @@ echo -e "${GREEN}  Backend:   http://localhost:8000${NC}"
 echo -e "${GREEN}  API Docs:  http://localhost:8000/docs${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "Press Ctrl+C to stop both servers."
+echo -e "${CYAN}Logs streaming below (Ctrl+C to stop):${NC}"
+echo ""
 
-wait
+# Log streaming — line-buffered, macOS-compatible (unlike sed -u)
+# Run separate tail for each log with a label prefix
+tail -f /tmp/backend.log 2>/dev/null | while IFS= read -r line; do
+  printf "${BLUE}─── BACKEND ──${NC} %s\n" "$line"
+done &
+TAIL_BACKEND_PID=$!
+
+tail -f /tmp/frontend.log 2>/dev/null | while IFS= read -r line; do
+  printf "${GREEN}─── FRONTEND ──${NC} %s\n" "$line"
+done &
+TAIL_FRONTEND_PID=$!
+
+# Trap to kill all child processes on Ctrl+C
+trap "echo ''; echo -e '${YELLOW}Shutting down...${NC}'; kill $BACKEND_PID $FRONTEND_PID $TAIL_BACKEND_PID $TAIL_FRONTEND_PID 2>/dev/null; wait $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0" INT TERM
+
+# Wait for both servers (tail processes are background children)
+wait $BACKEND_PID $FRONTEND_PID 2>/dev/null

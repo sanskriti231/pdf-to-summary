@@ -17,11 +17,12 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
   return (
     <motion.div
       key={index}
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.03 }}
       className={`mb-4 flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`}
     >
+      {/* Avatar */}
       <div
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
           isUser
@@ -40,14 +41,16 @@ export function ChatMessage({ message, index }: ChatMessageProps) {
           </svg>
         )}
       </div>
+
+      {/* Bubble */}
       <div
-        className={`max-w-[80%] rounded px-3 py-2 ${
+        className={`max-w-[80%] rounded-lg px-3 py-2 ${
           isUser
             ? "bg-primary text-primary-foreground"
-            : "bg-muted/50 text-foreground"
+            : "border bg-background text-foreground"
         }`}
       >
-        <div className="prose prose-sm max-w-none dark:prose-invert">
+        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-code:rounded prose-code:bg-muted/50 prose-code:px-1 prose-code:text-xs">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {message.content}
           </ReactMarkdown>

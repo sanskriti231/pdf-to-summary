@@ -70,19 +70,28 @@ export function HomeFooter() {
           </h4>
           <ul className="mt-4 space-y-2.5">
             <li>
-              <span className="text-xs text-muted-foreground">
+              <button
+                onClick={() => router.push("/about")}
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
                 About
-              </span>
+              </button>
             </li>
             <li>
-              <span className="text-xs text-muted-foreground">
+              <button
+                onClick={() => router.push("/privacy")}
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
                 Privacy
-              </span>
+              </button>
             </li>
             <li>
-              <span className="text-xs text-muted-foreground">
+              <button
+                onClick={() => router.push("/privacy")}
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
                 Terms
-              </span>
+              </button>
             </li>
           </ul>
         </div>
